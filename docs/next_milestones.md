@@ -27,6 +27,8 @@ and agent upgrade.
 - **Media backend registry**: Ares can now record backend status and prompt
   handoff packages for ViMax, HunyuanVideo, CogVideoX, Toonflow, and Open
   Generative AI while falling back to the built-in renderer.
+- **Remotion export**: media artifacts include an editable React/Remotion
+  project for previewing and rendering MP4 videos through Node.js.
 
 ## Important Limits
 
@@ -44,3 +46,6 @@ The local media generator is a storyboard and preview renderer. It does not yet
 run a large image diffusion or video model locally. HunyuanVideo, CogVideoX,
 Toonflow, and Open Generative AI require their own local installs or services
 before Ares can hand work to them.
+
+Remotion export creates project files only. Rendering MP4 requires Node.js and
+the Remotion dependencies installed inside the generated artifact folder.

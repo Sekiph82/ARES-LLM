@@ -25,6 +25,7 @@ local-llm-generate = "local_llm.generate:main"
 local-code-agent = "local_llm.agent:main"
 ares-create-web = "local_llm.web_artifact:main"
 ares-create-media = "local_llm.media_artifact:main"
+ares-create-remotion = "local_llm.remotion_artifact:main"
 
 [project.optional-dependencies]
 dev = [

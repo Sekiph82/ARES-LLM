@@ -45,6 +45,7 @@ Each run includes:
 - `storyboard.png`
 - `storyboard.md`
 - `ares-media.json`
+- `remotion\`
 - `keyframes\shot-*.png`
 - `frames\shot-*-frame-*.png`
 
@@ -68,6 +69,8 @@ Ares now has a backend registry for the repositories you requested:
   storyboard, and animation.
 - **Open Generative AI**: self-hosted studio shape with a model catalog and
   image/video generation integrations.
+- **Remotion**: React video export, editable animated compositions, and MP4
+  rendering through Node.js.
 - **Ares Procedural Renderer**: always-available local fallback.
 
 Configure optional external backends with environment variables:
@@ -83,6 +86,37 @@ ARES_OPEN_GENERATIVE_AI_URL
 When an external backend is not configured, Ares still creates the local
 storyboard/GIF artifact and writes a handoff-ready `prompt_package` into
 `ares-media.json`.
+
+## Remotion Export
+
+Every Ares media artifact now includes a `remotion\` folder. This is a real
+React video project inspired by Remotion's code-first workflow.
+
+Open the generated `remotion\` folder and run:
+
+```powershell
+npm install
+npm run preview
+```
+
+Render MP4:
+
+```powershell
+npm run render
+```
+
+The generated project includes:
+
+- `package.json`
+- `src\index.ts`
+- `src\Root.tsx`
+- `src\Video.tsx`
+- `src\style.css`
+- `public\scene-data.json`
+
+Remotion has its own license terms, including special commercial-use conditions
+in some cases. Check the Remotion license before using rendered videos
+commercially.
 
 Future upgrades can execute those bridges directly, call local HTTP services,
 or plug in local models such as Stable Diffusion, ComfyUI, AnimateDiff, or other

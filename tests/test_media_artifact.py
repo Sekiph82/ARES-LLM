@@ -75,6 +75,7 @@ def test_media_requests_route_to_media_artifacts() -> None:
 def test_media_backend_registry_has_requested_projects() -> None:
     names = set(backend_names())
 
-    assert {"vimax", "hunyuanvideo", "cogvideo", "toonflow", "open-generative-ai", "procedural"} <= names
+    assert {"vimax", "hunyuanvideo", "cogvideo", "toonflow", "open-generative-ai", "remotion", "procedural"} <= names
     assert media_backend_status("procedural").configured
+    assert media_backend_status("remotion").configured
     assert choose_backend("auto", "Create a realistic cinematic film").spec.name == "procedural"

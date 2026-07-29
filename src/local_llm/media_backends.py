@@ -31,11 +31,21 @@ BACKENDS: dict[str, MediaBackendSpec] = {
         name="procedural",
         display_name="Ares Procedural Renderer",
         repo_url="local",
-        modes=("text-to-storyboard", "text-to-gif", "keyframes"),
-        strengths=("always available", "fast laptop previews", "consistent Ares branding"),
+        modes=("text-to-storyboard", "text-to-gif", "keyframes", "remotion-export"),
+        strengths=("always available", "fast laptop previews", "consistent Ares branding", "React video handoff"),
         min_vram_gb=None,
         local_setup="No setup required. Uses Pillow inside Ares.",
         bridge_kind="internal",
+    ),
+    "remotion": MediaBackendSpec(
+        name="remotion",
+        display_name="Remotion React Video",
+        repo_url="https://github.com/remotion-dev/remotion",
+        modes=("react-video", "programmatic-rendering", "mp4-export", "video-apps"),
+        strengths=("React code as source of truth", "editable animations", "data-driven video rendering"),
+        min_vram_gb=None,
+        local_setup="Install Node.js, then run npm install inside an Ares remotion artifact folder.",
+        bridge_kind="project",
     ),
     "vimax": MediaBackendSpec(
         name="vimax",
@@ -110,6 +120,13 @@ def media_backend_status(name: str) -> MediaBackendStatus:
     spec = get_backend(name)
     if spec.name == "procedural":
         return MediaBackendStatus(spec, True, "Built into Ares.", "Ares will render the artifact directly.")
+    if spec.name == "remotion":
+        return MediaBackendStatus(
+            spec,
+            True,
+            "Ares can export Remotion-ready project files.",
+            "Run npm install and npm run preview inside the generated remotion folder.",
+        )
     if spec.env_var is None:
         return MediaBackendStatus(spec, False, "No configuration variable is defined.", "Use the procedural backend.")
 
@@ -132,7 +149,9 @@ def choose_backend(preferred: str = "auto", brief: str = "") -> MediaBackendStat
 
     text = brief.lower()
     priority = ["procedural"]
-    if any(word in text for word in ("drama", "script", "episode", "character", "toon", "animation")):
+    if "remotion" in text or "react video" in text or "programmatic video" in text:
+        priority = ["remotion", "procedural"]
+    elif any(word in text for word in ("drama", "script", "episode", "character", "toon", "animation")):
         priority = ["toonflow", "vimax", "cogvideo", "procedural"]
     elif any(word in text for word in ("realistic", "cinematic", "film", "motion", "camera")):
         priority = ["hunyuanvideo", "cogvideo", "vimax", "procedural"]
@@ -160,6 +179,8 @@ def build_launch_hint(spec: MediaBackendSpec, target: Path | str) -> str:
         return f"Send the script/storyboard package to the running Toonflow service at {target}."
     if spec.name == "open-generative-ai":
         return f"Send the prompt package to the running Open Generative AI studio at {target}."
+    if spec.name == "remotion":
+        return "Run npm install and npm run preview inside the generated remotion folder."
     return "Ares will render the artifact directly."
 
 
@@ -178,6 +199,8 @@ def backend_prompt_package(brief: str, backend: MediaBackendSpec) -> dict[str, o
         prompt = f"{brief}. Produce image and video variants with style, aspect ratio, seed, and model notes."
     elif backend.name == "vimax":
         prompt = f"Create an idea-to-video plan with story, shots, characters, storyboard, and render checkpoints: {brief}"
+    elif backend.name == "remotion":
+        prompt = f"Turn this into a data-driven React video composition with animated scenes and captions: {brief}"
     else:
         prompt = f"{brief}. {camera_language}"
     return {

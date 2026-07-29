@@ -66,6 +66,9 @@ the practical ideas folded into Ares.
 - `Anil-matcha/Open-Generative-AI`: a self-hosted image/video studio should
   expose a model catalog and generation endpoint. Ares adds this as an optional
   local HTTP backend target while keeping Ares' own safety and artifact checks.
+- `remotion-dev/remotion`: programmatic video is strongest when the video is
+  editable source code. Ares now exports each media artifact as a Remotion-ready
+  React project so the generated storyboard can become an MP4 composition.
 
 ## Deferred Ideas
 

@@ -40,6 +40,7 @@ class MediaArtifactResult:
     root: Path
     plan: MediaPlan
     backend_name: str
+    remotion_project: Path | None
     keyframes: list[Path]
     frames: list[Path]
     video_path: Path
@@ -550,6 +551,7 @@ def create_media_artifact(
     frames_per_shot: int = 12,
     fps: int = 8,
     backend: str = "auto",
+    remotion: bool = True,
 ) -> MediaArtifactResult:
     repo = repo.resolve()
     width = max(240, min(1920, width))
@@ -596,6 +598,11 @@ def create_media_artifact(
         )
     storyboard_image = _write_storyboard_image(root, plan, keyframes)
     storyboard_markdown = _write_storyboard_markdown(root, plan, video_path, keyframes)
+    remotion_project = None
+    if remotion:
+        from local_llm.remotion_artifact import create_remotion_artifact
+
+        remotion_project = create_remotion_artifact(brief, root=root, plan=plan, fps=fps, width=width, height=height)
     manifest = {
         "name": root.name,
         "kind": "local-media",
@@ -624,6 +631,7 @@ def create_media_artifact(
         "video": video_path.name,
         "storyboard": storyboard_markdown.name,
         "storyboard_image": storyboard_image.name,
+        "remotion_project": str(remotion_project.relative_to(root)) if remotion_project is not None else None,
         "keyframes": [str(path.relative_to(root)) for path in keyframes],
         "frames": [str(path.relative_to(root)) for path in frames],
         "plan": asdict(plan),
@@ -634,6 +642,7 @@ def create_media_artifact(
         root=root,
         plan=plan,
         backend_name=backend_status.spec.name,
+        remotion_project=remotion_project,
         keyframes=keyframes,
         frames=frames,
         video_path=video_path,
@@ -654,6 +663,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--frames-per-shot", type=int, default=12)
     parser.add_argument("--fps", type=int, default=8)
     parser.add_argument("--backend", default="auto", help="Media backend name or auto.")
+    parser.add_argument("--no-remotion", action="store_true", help="Skip Remotion project export.")
     parser.add_argument("--list-backends", action="store_true", help="Print available backend status and exit.")
     return parser.parse_args()
 
@@ -675,11 +685,14 @@ def main() -> None:
         frames_per_shot=args.frames_per_shot,
         fps=args.fps,
         backend=args.backend,
+        remotion=not args.no_remotion,
     )
     print(f"Created media artifact: {result.root}")
     print(f"Backend: {result.backend_name}")
     print(f"Video: {result.video_path}")
     print(f"Storyboard: {result.storyboard_markdown}")
+    if result.remotion_project is not None:
+        print(f"Remotion project: {result.remotion_project}")
     print(f"Keyframes: {len(result.keyframes)}")
 
 
