@@ -34,6 +34,9 @@ and agent upgrade.
 - **Expanded media backend targets**: backend status and handoff packages now
   include MoneyPrinterTurbo, imaginAIry, InfiniteTalk, timm, and image-processing
   learning references.
+- **Short Video Studio**: video prompts now create a full production artifact
+  with script, scenes, generated assets, subtitles, voiceover/TTS, background
+  music, audio mix, FFmpeg MP4 composition, aspect templates, and `studio.html`.
 
 ## Important Limits
 

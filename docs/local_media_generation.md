@@ -18,6 +18,14 @@ app mockups.
 
 ## Run It
 
+For full short-video production, use:
+
+```powershell
+python -m local_llm.short_video "create a 15 seconds YouTube short about Ares coding agent"
+```
+
+See [short_video_studio.md](short_video_studio.md).
+
 ```powershell
 python -m local_llm.media_artifact "Create a cinematic Ares launch video with code, dashboard, and logo"
 ```

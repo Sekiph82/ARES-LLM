@@ -74,7 +74,10 @@ the practical ideas folded into Ares.
   create `video.mp4` when available.
 - `harry0703/MoneyPrinterTurbo`: short-video creation is an end-to-end workflow:
   topic, hook, script, captions, voice, assets, and final package. Ares adds a
-  backend target and prompt package for that style of production.
+  backend target and prompt package for that style of production. Ares now also
+  includes Short Video Studio, a local implementation of that workflow with
+  script, scenes, assets, subtitles, voiceover, background music, FFmpeg
+  composition, aspect templates, and a studio UI.
 - `brycedrennan/imaginAIry`: local image/video generation should be optional and
   command-backed. Ares can now detect `aimg`/`imagine` or `ARES_IMAGINAIRY_CMD`
   as a future source of real generated images.

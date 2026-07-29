@@ -21,6 +21,7 @@ from local_llm.patch_ops import apply_patch_with_backup, check_patch
 from local_llm.patches import extract_unified_diffs
 from local_llm.repo_index import build_repo_index, format_repo_index
 from local_llm.session_log import load_agent_sessions
+from local_llm.short_video import ShortVideoConfig, create_short_video
 from local_llm.training_presets import TRAINING_PRESETS, ascii_loss_chart, load_metrics, preset_args
 from local_llm.web_artifact import create_web_artifact
 
@@ -444,7 +445,8 @@ class AresApp(tk.Tk):
             "BPE presets add learned pair-token merges. Ares SFT presets add chat formatting and assistant-only masked loss.\n"
             "Training runs save metrics.json, training_log.csv, validation_curve.svg, and runs/experiments.jsonl.\n"
             "\nMedia note:\n"
-            "Image/video requests create local storyboard, keyframe PNGs, animated GIF, MP4 when FFmpeg is available, and a Remotion project under artifacts/.\n"
+            "Video requests use Short Video Studio: script, scenes, assets, subtitles, voiceover, music, MP4, and studio UI.\n"
+            "Image/media requests create local storyboard, keyframe PNGs, animated GIF, MP4 when FFmpeg is available, and a Remotion project under artifacts/.\n"
             "This is a local procedural pipeline for planning and previews, not a large diffusion/video model.\n"
             "Optional backend bridges can be configured with ARES_VIMAX_DIR, ARES_HUNYUANVIDEO_DIR,\n"
             "ARES_COGVIDEO_DIR, ARES_TOONFLOW_URL, ARES_OPEN_GENERATIVE_AI_URL, ARES_FFMPEG_PATH,\n"
@@ -488,6 +490,9 @@ class AresApp(tk.Tk):
 
         if should_create_web_artifact(task):
             self.create_website_app()
+            return
+        if should_create_short_video(task):
+            self.create_short_video_task()
             return
         if should_create_media_artifact(task):
             self.create_media_artifact_task()
@@ -533,6 +538,44 @@ class AresApp(tk.Tk):
             )
             self.messages.put("__PATCH_PREVIEW__")
             self.messages.put("__REFRESH_SESSIONS__")
+        except Exception as exc:
+            self.messages.put(f"Error: {exc}\n")
+        finally:
+            self.messages.put("__READY__")
+
+    def create_short_video_task(self) -> None:
+        topic = self.prompt.get("1.0", tk.END).strip()
+        if not topic:
+            messagebox.showinfo(APP_NAME, "Enter a short-video topic first.")
+            return
+
+        self._set_busy(True, "Creating short video...")
+        self._append_output(f"\n[Ares Short Video Studio] {topic}\n\n")
+        thread = threading.Thread(target=self._create_short_video_worker, args=(topic,), daemon=True)
+        thread.start()
+
+    def _create_short_video_worker(self, topic: str) -> None:
+        try:
+            result = create_short_video(
+                topic=topic,
+                repo=self.repo_root,
+                config=ShortVideoConfig(fps=24, scene_count=5),
+            )
+            self.messages.put(f"Created short-video artifact:\n{result.root}\n")
+            if result.video_path is not None:
+                self.messages.put(f"MP4 video:\n{result.video_path}\n")
+            self.messages.put(f"Script:\n{result.root / 'script.md'}\n")
+            self.messages.put(f"Subtitles:\n{result.subtitles_path}\n")
+            if result.voiceover_path is not None:
+                self.messages.put(f"Voiceover:\n{result.voiceover_path}\n")
+            if result.music_path is not None:
+                self.messages.put(f"Background music:\n{result.music_path}\n")
+            self.messages.put(f"Studio UI:\n{result.web_ui_path}\n")
+            self.messages.put(f"Manifest:\n{result.manifest_path}\n")
+            try:
+                os.startfile(result.root)
+            except OSError as exc:
+                self.messages.put(f"Could not auto-open short-video folder: {exc}\n")
         except Exception as exc:
             self.messages.put(f"Error: {exc}\n")
         finally:
@@ -981,6 +1024,19 @@ def should_create_web_artifact(task: str) -> bool:
         "site",
     )
     return any(word in text for word in build_words) and any(word in text for word in artifact_words)
+
+
+def should_create_short_video(task: str) -> bool:
+    text = task.lower()
+    build_words = ("create", "build", "make", "generate", "produce", "render")
+    explicit_video_words = ("video", "shorts", "tiktok", "reels", "youtube short", "clip", "voiceover", "subtitles")
+    short_video_phrases = ("short video", "short-video", "15 seconds", "30 seconds", "60 seconds")
+    image_only_words = ("image", "images", "picture", "pictures", "keyframe", "storyboard")
+    if any(word in text for word in image_only_words) and not any(word in text for word in ("video", "short", "clip")):
+        return False
+    return any(word in text for word in build_words) and (
+        any(word in text for word in explicit_video_words) or any(phrase in text for phrase in short_video_phrases)
+    )
 
 
 def should_create_media_artifact(task: str) -> bool:

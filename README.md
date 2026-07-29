@@ -30,6 +30,9 @@ also building toward a useful local coding workflow.
   interactions, and a reusable `DESIGN.md` design contract.
 - Create local media artifacts with storyboard planning, generated keyframe
   PNGs, frame sequences, and animated GIF output.
+- Create full short-video production artifacts with topic-to-script planning,
+  scene assets, subtitles, voiceover/TTS, background music, FFmpeg composition,
+  aspect-ratio templates, MP4 export, and a local studio UI.
 - Use a desktop workspace with Chat, Files, Diff, Training, Sessions, and
   Settings panels.
 - Preview and check patch suggestions before applying them with a backup.
@@ -157,6 +160,32 @@ Ares. Edit it when you want Ares to use a different visual style for generated
 websites and apps.
 
 ## Create Local Images And Videos
+
+Ares has two local video paths:
+
+- **Short Video Studio** for video prompts: full production pipeline.
+- **Media Artifact** for image/storyboard/keyframe prompts: lightweight preview
+  renderer and backend handoff package.
+
+Create a full short-video production artifact:
+
+```powershell
+python -m local_llm.short_video "create a 15 seconds YouTube short about Ares coding agent"
+```
+
+Each short-video artifact includes:
+
+- `script.md`
+- `subtitles.srt`
+- `asset_plan.json`
+- `ares-short-video.config.json`
+- `voiceover.wav`
+- `background_music.wav`
+- `audio_mix.wav`
+- `short_video.mp4` when FFmpeg is available
+- `assets\scene-*.png`
+- `studio.html`
+- `ares-short-video.json`
 
 Ares can create lightweight local media artifacts inspired by agentic video
 generation workflows. It plans the prompt into shots, keeps a consistent visual
