@@ -1,0 +1,6 @@
+To be, or not to be, that is the question.
+The local model learns one character at a time.
+Small steps make the hidden pattern visible.
+Attention lets each token look back at useful context.
+Training is slow at first, then the loss begins to fall.
+A tiny model is a notebook for understanding larger ones.

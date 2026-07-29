@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-llm"
+version = "0.1.0"
+description = "A tiny local GPT-style language model built from scratch in PyTorch."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2",
+    "numpy>=1.26",
+    "tqdm>=4.66",
+]
+
+[project.scripts]
+ares = "local_llm.ares_app:main"
+local-llm-prepare-corpus = "local_llm.prepare_corpus:main"
+local-llm-train = "local_llm.train:main"
+local-llm-generate = "local_llm.generate:main"
+local-code-agent = "local_llm.agent:main"
+ares-create-web = "local_llm.web_artifact:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+app = [
+    "pillow>=10.0",
+    "pyinstaller>=6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
