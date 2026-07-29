@@ -94,6 +94,8 @@ def _keywords(brief: str, limit: int = 8) -> list[str]:
         "make",
         "of",
         "render",
+        "second",
+        "seconds",
         "the",
         "to",
         "video",
@@ -102,10 +104,17 @@ def _keywords(brief: str, limit: int = 8) -> list[str]:
     words = [word.lower() for word in re.findall(r"[A-Za-z0-9]+", brief)]
     unique: list[str] = []
     for word in words:
-        if len(word) < 3 or word in stop or word in unique:
+        if word.isdigit() or len(word) < 3 or word in stop or word in unique:
             continue
         unique.append(word)
     return unique[:limit] or ["ares", "local", "creative", "studio"]
+
+
+def _duration_from_brief(brief: str) -> float | None:
+    match = re.search(r"\b(\d+(?:\.\d+)?)\s*(?:sec|secs|second|seconds)\b", brief.lower())
+    if not match:
+        return None
+    return max(1.0, min(60.0, float(match.group(1))))
 
 
 def _title_from_brief(brief: str) -> str:
@@ -240,6 +249,181 @@ def _ellipsize(text: str, font: ImageFont.ImageFont, max_width: int) -> str:
     return suffix
 
 
+def _draw_moonlit_scene(draw: ImageDraw.ImageDraw, size: tuple[int, int], progress: float) -> None:
+    width, height = size
+    moon_x = int(width * 0.78)
+    moon_y = int(height * 0.18)
+    moon_r = max(18, int(min(width, height) * 0.075))
+    draw.ellipse((moon_x - moon_r, moon_y - moon_r, moon_x + moon_r, moon_y + moon_r), fill="#e5e7eb")
+    draw.ellipse((moon_x - moon_r // 3, moon_y - moon_r, moon_x + moon_r, moon_y + moon_r), fill="#111827")
+
+    horizon = int(height * 0.76)
+    mountains = [
+        (0, horizon, int(width * 0.20), int(height * 0.45), int(width * 0.42), horizon),
+        (int(width * 0.26), horizon, int(width * 0.52), int(height * 0.38), int(width * 0.82), horizon),
+        (int(width * 0.62), horizon, int(width * 0.86), int(height * 0.48), width, horizon),
+    ]
+    for mountain in mountains:
+        draw.polygon(mountain, fill="#0b1220")
+    draw.rectangle((0, horizon, width, height), fill="#0f172a")
+    mist_y = int(horizon - 20 + math.sin(progress * math.pi * 2) * 4)
+    draw.line((0, mist_y, width, mist_y), fill="#38bdf8", width=max(1, height // 160))
+
+
+def _draw_ninja(draw: ImageDraw.ImageDraw, center: tuple[int, int], scale: float, progress: float) -> None:
+    cx, cy = center
+    s = scale
+    black = "#050505"
+    cloth = "#111827"
+    edge = "#e5e7eb"
+    accent = "#ef4444"
+
+    head_r = int(26 * s)
+    body_w = int(38 * s)
+    body_h = int(72 * s)
+    draw.ellipse((cx - head_r, cy - int(92 * s), cx + head_r, cy - int(40 * s)), fill=black, outline=edge, width=max(1, int(2 * s)))
+    draw.polygon(
+        [
+            (cx - int(18 * s), cy - int(66 * s)),
+            (cx + int(18 * s), cy - int(66 * s)),
+            (cx + int(11 * s), cy - int(54 * s)),
+            (cx - int(11 * s), cy - int(54 * s)),
+        ],
+        fill=edge,
+    )
+    draw.polygon(
+        [
+            (cx - body_w, cy - int(38 * s)),
+            (cx + body_w, cy - int(38 * s)),
+            (cx + int(25 * s), cy + body_h),
+            (cx - int(25 * s), cy + body_h),
+        ],
+        fill=cloth,
+        outline=edge,
+    )
+    scarf = int(math.sin(progress * math.pi * 2) * 10 * s)
+    draw.polygon(
+        [
+            (cx - int(20 * s), cy - int(48 * s)),
+            (cx - int(84 * s), cy - int(62 * s) + scarf),
+            (cx - int(28 * s), cy - int(32 * s)),
+        ],
+        fill=accent,
+    )
+    arm_y = cy - int(8 * s)
+    sword_tip = (cx + int(145 * s), cy - int(92 * s) + int(progress * 22 * s))
+    sword_base = (cx + int(10 * s), arm_y)
+    draw.line((cx - int(52 * s), arm_y + int(18 * s), cx + int(45 * s), arm_y - int(8 * s)), fill=edge, width=max(3, int(6 * s)))
+    draw.line((sword_base, sword_tip), fill="#f8fafc", width=max(2, int(4 * s)))
+    draw.line((cx - int(16 * s), cy + body_h, cx - int(70 * s), cy + int(118 * s)), fill=black, width=max(6, int(11 * s)))
+    draw.line((cx + int(16 * s), cy + body_h, cx + int(62 * s), cy + int(112 * s)), fill=black, width=max(6, int(11 * s)))
+
+
+def _draw_dragon(draw: ImageDraw.ImageDraw, center: tuple[int, int], scale: float, progress: float) -> None:
+    cx, cy = center
+    s = scale
+    body = "#166534"
+    belly = "#f59e0b"
+    wing = "#14532d"
+    edge = "#bbf7d0"
+    fire = "#f97316"
+
+    points: list[tuple[int, int]] = []
+    for i in range(9):
+        x = cx - int(i * 34 * s)
+        y = cy + int(math.sin(i * 0.9 + progress * math.pi * 2) * 26 * s)
+        points.append((x, y))
+    for index, point in enumerate(points[:-1]):
+        next_point = points[index + 1]
+        draw.line((point, next_point), fill=body, width=max(12, int(30 * s)))
+        draw.line((point, next_point), fill=edge, width=max(2, int(4 * s)))
+
+    head_x, head_y = points[0]
+    head = [
+        (head_x + int(48 * s), head_y - int(22 * s)),
+        (head_x + int(92 * s), head_y),
+        (head_x + int(48 * s), head_y + int(26 * s)),
+        (head_x + int(22 * s), head_y + int(10 * s)),
+        (head_x + int(22 * s), head_y - int(10 * s)),
+    ]
+    draw.polygon(head, fill=body, outline=edge)
+    draw.ellipse((head_x + int(56 * s), head_y - int(10 * s), head_x + int(66 * s), head_y), fill="#f8fafc")
+    draw.polygon(
+        [
+            (head_x + int(24 * s), head_y - int(18 * s)),
+            (head_x + int(2 * s), head_y - int(58 * s)),
+            (head_x + int(54 * s), head_y - int(28 * s)),
+        ],
+        fill=wing,
+        outline=edge,
+    )
+    draw.polygon(
+        [
+            (head_x - int(54 * s), head_y - int(4 * s)),
+            (head_x - int(118 * s), head_y - int(86 * s)),
+            (head_x - int(8 * s), head_y - int(58 * s)),
+        ],
+        fill=wing,
+        outline=edge,
+    )
+    draw.polygon(
+        [
+            (head_x - int(70 * s), head_y + int(12 * s)),
+            (head_x - int(142 * s), head_y + int(86 * s)),
+            (head_x - int(14 * s), head_y + int(58 * s)),
+        ],
+        fill=wing,
+        outline=edge,
+    )
+    draw.line((head_x + int(4 * s), head_y + int(14 * s), head_x + int(52 * s), head_y + int(22 * s)), fill=belly, width=max(2, int(5 * s)))
+    flame_start = (head_x + int(88 * s), head_y + int(3 * s))
+    flame_end = (head_x + int(170 * s), head_y - int(14 * s) + int(progress * 18 * s))
+    draw.polygon(
+        [
+            flame_start,
+            (flame_end[0] - int(24 * s), flame_end[1] - int(28 * s)),
+            flame_end,
+            (flame_end[0] - int(18 * s), flame_end[1] + int(26 * s)),
+        ],
+        fill=fire,
+    )
+
+
+def _draw_subject_scene(
+    image: Image.Image,
+    plan: MediaPlan,
+    shot: MediaShot,
+    progress: float,
+    size: tuple[int, int],
+) -> bool:
+    text = f"{plan.brief} {shot.title} {shot.prompt}".lower()
+    has_ninja = "ninja" in text or "samurai" in text
+    has_dragon = "dragon" in text
+    has_fight = "fight" in text or "battle" in text or "duel" in text
+    if not (has_ninja or has_dragon or has_fight):
+        return False
+
+    width, height = size
+    draw = ImageDraw.Draw(image)
+    _draw_moonlit_scene(draw, size, progress)
+    scale = min(width / 960, height / 540)
+    if has_ninja or has_fight:
+        x = int(width * (0.28 + math.sin(progress * math.pi) * 0.06))
+        y = int(height * 0.60)
+        _draw_ninja(draw, (x, y), scale, progress)
+    if has_dragon or has_fight:
+        x = int(width * (0.78 - math.sin(progress * math.pi) * 0.05))
+        y = int(height * 0.43)
+        _draw_dragon(draw, (x, y), scale, progress)
+    if has_fight:
+        clash_x = int(width * 0.52)
+        clash_y = int(height * 0.44)
+        for radius in (18, 34, 52):
+            r = int(radius * scale * (1.0 + progress * 0.5))
+            draw.ellipse((clash_x - r, clash_y - r, clash_x + r, clash_y + r), outline="#facc15", width=max(2, int(4 * scale)))
+    return True
+
+
 def render_frame(
     plan: MediaPlan,
     shot: MediaShot,
@@ -254,6 +438,7 @@ def render_frame(
     image = Image.new("RGB", size, shot.palette[0])
     draw = ImageDraw.Draw(image)
     _draw_gradient(draw, size, shot.palette[0], shot.palette[4])
+    subject_scene = _draw_subject_scene(image, plan, shot, progress, size)
 
     accent = shot.palette[1]
     light = shot.palette[2]
@@ -262,25 +447,27 @@ def render_frame(
     center_y = height * (0.48 + math.cos(progress * math.pi * 2) * 0.03)
     radius = int(min(width, height) * (0.17 + progress * 0.04))
 
-    for layer in range(5):
-        offset = layer * int(width * 0.04)
-        alpha_color = accent if layer % 2 == 0 else muted
-        x0 = int(center_x - radius - offset * 0.35)
-        y0 = int(center_y - radius * 0.65 + offset * 0.12)
-        x1 = int(center_x + radius + offset)
-        y1 = int(center_y + radius * 0.65 + offset * 0.12)
-        draw.rounded_rectangle((x0, y0, x1, y1), radius=18, outline=alpha_color, width=3)
+    if not subject_scene:
+        for layer in range(5):
+            offset = layer * int(width * 0.04)
+            alpha_color = accent if layer % 2 == 0 else muted
+            x0 = int(center_x - radius - offset * 0.35)
+            y0 = int(center_y - radius * 0.65 + offset * 0.12)
+            x1 = int(center_x + radius + offset)
+            y1 = int(center_y + radius * 0.65 + offset * 0.12)
+            draw.rounded_rectangle((x0, y0, x1, y1), radius=18, outline=alpha_color, width=3)
 
     stripe_x = int((progress * width * 1.3) - width * 0.2)
-    draw.polygon(
-        [
-            (stripe_x, 0),
-            (stripe_x + int(width * 0.16), 0),
-            (stripe_x - int(width * 0.12), height),
-            (stripe_x - int(width * 0.28), height),
-        ],
-        fill=accent,
-    )
+    if not subject_scene:
+        draw.polygon(
+            [
+                (stripe_x, 0),
+                (stripe_x + int(width * 0.16), 0),
+                (stripe_x - int(width * 0.12), height),
+                (stripe_x - int(width * 0.28), height),
+            ],
+            fill=accent,
+        )
 
     for _ in range(28):
         x = rng.randrange(0, width)
@@ -371,7 +558,11 @@ def create_media_artifact(
     fps = max(1, min(30, fps))
     backend_status = choose_backend(backend, brief=brief)
     prompt_package = backend_prompt_package(brief, backend_status.spec)
-    plan = plan_media(str(prompt_package["enhanced_prompt"]), shot_count=shot_count)
+    plan = plan_media(brief, shot_count=shot_count)
+    requested_duration_sec = _duration_from_brief(brief)
+    if requested_duration_sec is not None:
+        total_frames = min(900, max(len(plan.shots), int(round(requested_duration_sec * fps))))
+        frames_per_shot = max(1, total_frames // max(1, len(plan.shots)))
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     root = repo / "artifacts" / f"media-{slugify(brief)}-{timestamp}"
     frames_dir = root / "frames"
@@ -428,6 +619,8 @@ def create_media_artifact(
         "fps": fps,
         "frames_per_shot": frames_per_shot,
         "shot_count": len(plan.shots),
+        "duration_sec": round(len(plan.shots) * frames_per_shot / fps, 3),
+        "requested_duration_sec": requested_duration_sec,
         "video": video_path.name,
         "storyboard": storyboard_markdown.name,
         "storyboard_image": storyboard_image.name,

@@ -50,6 +50,22 @@ def test_create_media_artifact_writes_video_storyboard_and_manifest(tmp_path) ->
     assert manifest["size"] == {"width": 320, "height": 180}
 
 
+def test_create_media_artifact_honors_requested_seconds(tmp_path) -> None:
+    result = create_media_artifact(
+        "create a 15 seconds video for a ninja and dragon fight scene",
+        repo=tmp_path,
+        shot_count=3,
+        width=320,
+        height=180,
+        fps=5,
+    )
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["requested_duration_sec"] == 15.0
+    assert manifest["duration_sec"] == 15.0
+    assert len(result.frames) == 75
+
+
 def test_media_requests_route_to_media_artifacts() -> None:
     assert should_create_media_artifact("Create a cinematic video for my Shopify product")
     assert should_create_media_artifact("generate images for a website launch")
