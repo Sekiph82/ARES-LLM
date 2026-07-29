@@ -138,6 +138,18 @@ Each artifact includes:
 - `README.md`
 - `ares-artifact.json`
 
+For browser screenshots and visual QA, install the optional visual dependencies
+and Chromium browser once:
+
+```powershell
+python -m pip install -e ".[visual]"
+python -m playwright install chromium
+```
+
+When enabled, generated artifacts include desktop and mobile screenshots under
+`visual-qa\`, and the manifest records whether the page passed the blank-screen
+check.
+
 The root `DESIGN.md` file acts like an Open Design-style brand contract for
 Ares. Edit it when you want Ares to use a different visual style for generated
 websites and apps.
