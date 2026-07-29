@@ -7,10 +7,20 @@ import numpy as np
 from PIL import Image
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SOURCE = REPO_ROOT / "Ares images.png"
+DEFAULT_ASSETS_DIR = REPO_ROOT / "assets"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Update Ares PNG and ICO assets from a source image.")
-    parser.add_argument("--source", type=Path, default=Path.home() / "Desktop" / "Ares images.png")
-    parser.add_argument("--assets-dir", type=Path, default=Path("assets"))
+    parser.add_argument(
+        "--source",
+        type=Path,
+        default=DEFAULT_SOURCE,
+        help="Source logo image. Defaults to the checked-in repo file: Ares images.png",
+    )
+    parser.add_argument("--assets-dir", type=Path, default=DEFAULT_ASSETS_DIR)
     parser.add_argument(
         "--desktop-symbol-ratio",
         type=float,

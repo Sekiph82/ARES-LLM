@@ -173,29 +173,40 @@ $env:ARES_ETSY_SHOP_ID = "your-shop-id"
 
 Details are in [docs/commerce_setup.md](docs/commerce_setup.md).
 
-Refresh the Ares logo and icon from the desktop PNG:
+Refresh the Ares logo and icon from the checked-in repo PNG:
 
 ```powershell
-python scripts\update_ares_assets.py --source "C:\Users\sekip\Desktop\Ares images.png"
+python scripts\update_ares_assets.py
 ```
 
-Build the app and create the desktop shortcut:
+Build the app inside the local repo:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build_ares_app.ps1
+```
+
+This creates the executable at:
+
+```text
+dist\Ares.exe
+```
+
+Create an optional desktop shortcut for the current Windows user:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File scripts\create_ares_shortcut.ps1
 ```
 
-The shortcut points to:
+The shortcut points to the repo-local executable:
 
 ```text
-C:\Users\sekip\Desktop\LLM\dist\Ares.exe
+<repo>\dist\Ares.exe
 ```
 
-The shortcut is created at:
+The shortcut is created on the current user's Desktop:
 
 ```text
-C:\Users\sekip\Desktop\Ares.lnk
+%USERPROFILE%\Desktop\Ares.lnk
 ```
 
 ## Train A Tiny Model

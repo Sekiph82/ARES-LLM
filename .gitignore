@@ -25,4 +25,7 @@ dist/
 *.ckpt
 
 .env
+.env.*
+!.env.example
+*.lnk
 .DS_Store
