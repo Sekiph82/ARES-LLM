@@ -54,6 +54,25 @@ Ares now has two local training stages:
    projects such as `FareedKhan-dev/train-llm-from-scratch`: pretrain a base
    model first, then teach it how to answer as an assistant.
 
+## Tokenizers
+
+Ares supports two tokenizer modes:
+
+- **char**: simple, transparent, and useful for first training experiments.
+- **bpe**: learns repeated character-pair merges and produces larger text
+  chunks. This is closer to the tokenizer style used by practical LLMs, while
+  staying small enough to understand.
+
+Use BPE when you want fewer tokens and a more realistic training setup. Use char
+when you want the simplest possible debug path.
+
+## LoRA Experiments
+
+Ares can now run tiny LoRA adapter experiments with `--lora-rank`. LoRA freezes
+the base model weights and trains small low-rank adapter matrices inside
+selected linear layers. This is useful for learning how adapter fine-tuning
+works without updating every parameter.
+
 ## How Training Affects Ares
 
 Today, training affects Ares in two different ways:
@@ -77,6 +96,10 @@ For this laptop-friendly setup:
   adding example data.
 - Run **Small CPU** or **Ares SFT Small CPU** only when you want a longer
   experiment and the laptop can work for a while.
+- Run **BPE CPU Demo** to test BPE tokenization.
+- Run **13M BPE Experiment** only as a larger experiment. It follows the small
+  13M-style model shape from the external training repo, but CPU training will
+  be much slower than the demo presets.
 
 Do not train forever just because the button exists. Train, check validation
 loss, generate a sample, compare behavior, then decide whether another run is

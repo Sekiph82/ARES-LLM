@@ -11,6 +11,7 @@ from pathlib import Path
 from local_llm.agent_core import DEFAULT_MODEL
 from local_llm.design_system import load_design_system
 from local_llm.ollama_client import OllamaClient
+from local_llm.visual_qa import VisualQAResult, run_visual_qa
 
 
 FILE_BLOCK_RE = re.compile(
@@ -44,6 +45,7 @@ class WebArtifactResult:
     used_fallback: bool
     quality_issues: list[str]
     model_response: str
+    visual_qa: VisualQAResult | None = None
 
     @property
     def entry_file(self) -> Path:
@@ -515,6 +517,7 @@ def create_web_artifact(
     repo: Path,
     model: str = DEFAULT_MODEL,
     client: OllamaClient | None = None,
+    visual_qa: bool = True,
 ) -> WebArtifactResult:
     repo = repo.resolve()
     design_system = load_design_system(repo)
@@ -561,12 +564,17 @@ def create_web_artifact(
         "files": [file.path for file in files],
     }
     write_artifact_files(root, files, manifest)
+    qa_result = run_visual_qa(root / "index.html", root) if visual_qa else None
+    if qa_result is not None:
+        manifest["visual_qa"] = qa_result.to_dict()
+        (root / "ares-artifact.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return WebArtifactResult(
         root=root,
         files=files,
         used_fallback=used_fallback,
         quality_issues=issues,
         model_response=response,
+        visual_qa=qa_result,
     )
 
 

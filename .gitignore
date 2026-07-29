@@ -11,6 +11,9 @@ data/ares_corpus.txt
 data/ares_memory.md
 data/ares_sft_corpus.txt
 data/ares_sft_mask.json
+data/ares_instruction_sft.txt
+data/ares_instruction_sft_mask.json
+data/public_domain_corpus.txt
 runs/
 artifacts/
 checkpoints/

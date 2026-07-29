@@ -1,4 +1,4 @@
-from local_llm.patch_ops import check_patch, is_safe_relative_path, patch_paths
+from local_llm.patch_ops import assess_patch_safety, check_patch, is_safe_relative_path, patch_paths
 
 
 def test_patch_paths_extracts_git_diff_paths() -> None:
@@ -22,3 +22,33 @@ def test_check_patch_rejects_empty_patch(tmp_path) -> None:
 
     assert not result.ok
     assert "No patch text" in result.message
+
+
+def test_assess_patch_safety_rejects_generated_paths(tmp_path) -> None:
+    patch = """diff --git a/runs/demo.txt b/runs/demo.txt
+--- a/runs/demo.txt
++++ b/runs/demo.txt
+@@ -1 +1 @@
+-old
++new
+"""
+
+    result = assess_patch_safety(tmp_path, patch)
+
+    assert not result.ok
+    assert "generated or internal" in result.message
+
+
+def test_assess_patch_safety_rejects_env_files(tmp_path) -> None:
+    patch = """diff --git a/.env b/.env
+--- a/.env
++++ b/.env
+@@ -1 +1 @@
+-A=1
++A=2
+"""
+
+    result = assess_patch_safety(tmp_path, patch)
+
+    assert not result.ok
+    assert "secret" in result.message

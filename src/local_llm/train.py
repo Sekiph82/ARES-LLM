@@ -9,8 +9,9 @@ from pathlib import Path
 import torch
 from tqdm import tqdm
 
+from local_llm.lora import LoRAConfig, apply_lora_adapters, trainable_parameter_count
 from local_llm.model import GPTConfig, GPTLanguageModel
-from local_llm.tokenizer import CharTokenizer
+from local_llm.tokenizer import build_tokenizer
 from local_llm.utils import get_device, set_seed
 
 
@@ -20,6 +21,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, default=Path("runs/tiny"), help="Checkpoint output directory.")
     parser.add_argument("--stage", choices=["pretrain", "sft"], default="pretrain")
     parser.add_argument("--sft-mask", type=Path, default=None, help="JSON mask aligned to the SFT input text.")
+    parser.add_argument("--tokenizer", choices=["char", "bpe"], default="char")
+    parser.add_argument("--bpe-vocab-size", type=int, default=512)
+    parser.add_argument("--experiment-name", default=None)
+    parser.add_argument("--experiment-log", type=Path, default=Path("runs/experiments.jsonl"))
+    parser.add_argument("--lora-rank", type=int, default=0)
+    parser.add_argument("--lora-alpha", type=float, default=8.0)
+    parser.add_argument("--lora-dropout", type=float, default=0.0)
     parser.add_argument("--max-steps", type=int, default=300)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--block-size", type=int, default=128)
@@ -97,9 +105,10 @@ def main() -> None:
     device = get_device(args.device)
 
     text = args.input.read_text(encoding="utf-8")
-    tokenizer = CharTokenizer.from_text(text)
-    encoded = torch.tensor(tokenizer.encode(text), dtype=torch.long)
-    mask_tensor = load_sft_mask(args.sft_mask, len(encoded)) if args.stage == "sft" else None
+    tokenizer = build_tokenizer(text, kind=args.tokenizer, bpe_vocab_size=args.bpe_vocab_size)
+    token_ids, token_spans = tokenizer.encode_with_spans(text)
+    encoded = torch.tensor(token_ids, dtype=torch.long)
+    mask_tensor = load_sft_mask(args.sft_mask, len(text), token_spans) if args.stage == "sft" else None
 
     split_idx = max(1, int(0.9 * len(encoded)))
     train_data = encoded[:split_idx]
@@ -119,8 +128,14 @@ def main() -> None:
         dropout=args.dropout,
     )
     model = GPTLanguageModel(config).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
+    lora_config = None
+    lora_modules = 0
+    if args.lora_rank > 0:
+        lora_config = LoRAConfig(rank=args.lora_rank, alpha=args.lora_alpha, dropout=args.lora_dropout)
+        lora_modules = apply_lora_adapters(model, lora_config)
+    optimizer = torch.optim.AdamW((param for param in model.parameters() if param.requires_grad), lr=args.learning_rate)
     param_count = sum(param.numel() for param in model.parameters())
+    trainable_params = trainable_parameter_count(model)
     tokens_per_step = args.batch_size * args.block_size
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -210,12 +225,15 @@ def main() -> None:
         "param_count": param_count,
         "tokens_processed": args.max_steps * tokens_per_step,
         "stage": args.stage,
+        "tokenizer": args.tokenizer,
+        "lora": lora_config.__dict__ if lora_config else None,
     }
     torch.save(checkpoint, args.out_dir / "checkpoint.pt")
     metrics_payload = {
         "input": str(args.input),
         "device": str(device),
         "param_count": param_count,
+        "trainable_param_count": trainable_params,
         "vocab_size": tokenizer.vocab_size,
         "tokens": len(encoded),
         "train_tokens": len(train_data),
@@ -223,6 +241,9 @@ def main() -> None:
         "tokens_per_step": tokens_per_step,
         "tokens_processed": args.max_steps * tokens_per_step,
         "stage": args.stage,
+        "tokenizer": args.tokenizer,
+        "lora_modules": lora_modules,
+        "lora": lora_config.__dict__ if lora_config else None,
         "masked_loss": mask_tensor is not None,
         "elapsed_sec": time.perf_counter() - total_start,
         "config": config.to_dict(),
@@ -231,19 +252,87 @@ def main() -> None:
         "step_logs": step_logs,
     }
     (args.out_dir / "metrics.json").write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
+    write_validation_curve(metrics_payload, args.out_dir / "validation_curve.svg")
+    append_experiment_log(args.experiment_log, metrics_payload, args)
     print(f"Saved checkpoint to {args.out_dir / 'checkpoint.pt'}")
     print(f"Saved metrics to {args.out_dir / 'metrics.json'}")
     print(f"Saved llm.c-style training log to {csv_path}")
+    print(f"Saved validation curve to {args.out_dir / 'validation_curve.svg'}")
 
 
-def load_sft_mask(mask_path: Path | None, expected_len: int) -> torch.Tensor:
+def load_sft_mask(
+    mask_path: Path | None,
+    expected_chars: int,
+    token_spans: list[tuple[int, int]],
+) -> torch.Tensor:
     if mask_path is None:
         raise ValueError("--stage sft requires --sft-mask")
     payload = json.loads(mask_path.read_text(encoding="utf-8"))
     mask = payload["mask"] if isinstance(payload, dict) else payload
-    if len(mask) != expected_len:
-        raise ValueError(f"SFT mask length {len(mask)} does not match encoded text length {expected_len}.")
-    return torch.tensor(mask, dtype=torch.float32)
+    if len(mask) != expected_chars:
+        raise ValueError(f"SFT mask length {len(mask)} does not match text length {expected_chars}.")
+    token_mask = [1.0 if any(mask[pos] for pos in range(start, end)) else 0.0 for start, end in token_spans]
+    return torch.tensor(token_mask, dtype=torch.float32)
+
+
+def write_validation_curve(metrics_payload: dict[str, object], path: Path) -> None:
+    metrics = [item for item in metrics_payload.get("metrics", []) if isinstance(item, dict)]
+    points = [
+        (float(item.get("step", 0)), float(item["val_loss"]))
+        for item in metrics
+        if item.get("val_loss") is not None
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not points:
+        path.write_text("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"640\" height=\"240\"></svg>\n", encoding="utf-8")
+        return
+
+    width, height = 720, 300
+    pad = 42
+    min_step, max_step = min(step for step, _ in points), max(step for step, _ in points)
+    min_loss, max_loss = min(loss for _, loss in points), max(loss for _, loss in points)
+    step_span = max(1.0, max_step - min_step)
+    loss_span = max(0.0001, max_loss - min_loss)
+    coords = []
+    for step, loss in points:
+        x = pad + ((step - min_step) / step_span) * (width - pad * 2)
+        y = height - pad - ((max_loss - loss) / loss_span) * (height - pad * 2)
+        coords.append(f"{x:.1f},{y:.1f}")
+    polyline = " ".join(coords)
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
+  <rect width="100%" height="100%" fill="#101216"/>
+  <text x="{pad}" y="26" fill="#f6f7f9" font-family="Segoe UI, Arial" font-size="16">Validation Loss</text>
+  <line x1="{pad}" y1="{height - pad}" x2="{width - pad}" y2="{height - pad}" stroke="#4b5563"/>
+  <line x1="{pad}" y1="{pad}" x2="{pad}" y2="{height - pad}" stroke="#4b5563"/>
+  <polyline points="{polyline}" fill="none" stroke="#f97316" stroke-width="3"/>
+  <text x="{pad}" y="{height - 12}" fill="#aab2bf" font-family="Segoe UI, Arial" font-size="12">step {int(min_step)} to {int(max_step)}</text>
+  <text x="{width - 180}" y="{height - 12}" fill="#aab2bf" font-family="Segoe UI, Arial" font-size="12">loss {min_loss:.3f} to {max_loss:.3f}</text>
+</svg>
+"""
+    path.write_text(svg, encoding="utf-8")
+
+
+def append_experiment_log(path: Path, metrics_payload: dict[str, object], args: argparse.Namespace) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    losses = metrics_payload.get("metrics", [])
+    last_loss = None
+    if isinstance(losses, list) and losses:
+        last = losses[-1]
+        if isinstance(last, dict):
+            last_loss = last.get("val_loss")
+    record = {
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "name": args.experiment_name or Path(str(args.out_dir)).name,
+        "out_dir": str(args.out_dir),
+        "stage": args.stage,
+        "tokenizer": args.tokenizer,
+        "param_count": metrics_payload.get("param_count"),
+        "trainable_param_count": metrics_payload.get("trainable_param_count"),
+        "tokens_processed": metrics_payload.get("tokens_processed"),
+        "last_val_loss": last_loss,
+    }
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record) + "\n")
 
 
 if __name__ == "__main__":

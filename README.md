@@ -32,6 +32,11 @@ also building toward a useful local coding workflow.
   Python symbol index from the app.
 - Train the scratch model with CPU pretraining/SFT presets and generate from a
   saved checkpoint.
+- Train with a character tokenizer or compact BPE tokenizer.
+- Save validation curve SVGs and append experiment summaries to
+  `runs/experiments.jsonl`.
+- Prepare public-domain text and instruction JSONL for local training.
+- Run optional LoRA adapter training for small fine-tuning experiments.
 - Run smoke tests for the tokenizer and model forward pass.
 
 The from-scratch model is not intended to compete with production LLMs. For
@@ -210,11 +215,25 @@ The training loop now includes `llm.c`-style visibility:
 - validation-loss checkpoints
 - `metrics.json`
 - `training_log.csv`
+- `validation_curve.svg`
+- `runs/experiments.jsonl`
 
 For a very short CPU demo, use:
 
 ```powershell
 python -m local_llm.train --input data/tiny_corpus.txt --out-dir runs/llmc-demo --max-steps 40 --batch-size 4 --block-size 64 --n-layer 2 --n-head 2 --n-embd 64 --eval-interval 20 --eval-iters 8 --log-interval 1 --device cpu
+```
+
+Use BPE instead of the character tokenizer:
+
+```powershell
+python -m local_llm.train --input data/tiny_corpus.txt --out-dir runs/bpe-demo --tokenizer bpe --bpe-vocab-size 512 --max-steps 80 --batch-size 4 --block-size 96 --n-layer 2 --n-head 2 --n-embd 64 --device cpu
+```
+
+Prepare a larger public-domain corpus:
+
+```powershell
+python -m local_llm.prepare_public_domain_corpus --output data\public_domain_corpus.txt --max-chars 2000000
 ```
 
 The training flow also includes a small supervised fine-tuning path inspired by
@@ -225,6 +244,23 @@ chat-format examples plus assistant-only masked loss.
 python -m local_llm.prepare_sft_corpus --repo . --output data\ares_sft_corpus.txt --mask-output data\ares_sft_mask.json
 python -m local_llm.train --input data\ares_sft_corpus.txt --sft-mask data\ares_sft_mask.json --stage sft --out-dir runs\ares-sft --max-steps 80 --batch-size 4 --block-size 96 --n-layer 2 --n-head 2 --n-embd 64 --eval-interval 20 --eval-iters 8 --log-interval 1 --device cpu
 ```
+
+Convert instruction JSONL into the same SFT format:
+
+```powershell
+python -m local_llm.prepare_instruction_corpus --input data\instructions.jsonl --output data\ares_instruction_sft.txt --mask-output data\ares_instruction_sft_mask.json
+```
+
+Run a small LoRA adapter experiment:
+
+```powershell
+python -m local_llm.train --input data\tiny_corpus.txt --out-dir runs\lora-demo --lora-rank 4 --lora-alpha 8 --max-steps 80 --batch-size 4 --block-size 96 --n-layer 2 --n-head 2 --n-embd 64 --device cpu
+```
+
+The `13M BPE Experiment` preset follows the same small-model shape described in
+the training repo you shared: BPE vocabulary around 50k, 128-dimensional
+embeddings, one transformer block, eight heads, and 128-token context. It is
+available as an experiment, not as the default laptop-friendly run.
 
 ## Generate Text
 
@@ -251,7 +287,11 @@ src/local_llm/
   tokenizer.py   Character tokenizer.
   model.py       GPT-style decoder-only Transformer.
   train.py       Pretraining loop for plain text.
+  prepare_public_domain_corpus.py
+  prepare_instruction_corpus.py
   prepare_sft_corpus.py
+  lora.py
+  visual_qa.py
   generate.py    Local text generation CLI.
   agent.py       Ollama-powered coding assistant CLI.
   web_artifact.py

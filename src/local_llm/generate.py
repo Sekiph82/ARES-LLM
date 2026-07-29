@@ -5,8 +5,9 @@ from pathlib import Path
 
 import torch
 
+from local_llm.lora import LoRAConfig, apply_lora_adapters
 from local_llm.model import GPTConfig, GPTLanguageModel
-from local_llm.tokenizer import CharTokenizer
+from local_llm.tokenizer import load_tokenizer
 from local_llm.utils import get_device, set_seed
 
 
@@ -29,10 +30,13 @@ def main() -> None:
 
     checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
     tokenizer_path = args.checkpoint.parent / checkpoint.get("tokenizer_path", "tokenizer.json")
-    tokenizer = CharTokenizer.load(tokenizer_path)
+    tokenizer = load_tokenizer(tokenizer_path)
 
     config = GPTConfig.from_dict(checkpoint["config"])
     model = GPTLanguageModel(config).to(device)
+    if checkpoint.get("lora"):
+        lora_payload = checkpoint["lora"]
+        apply_lora_adapters(model, LoRAConfig(**lora_payload))
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 

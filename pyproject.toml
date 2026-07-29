@@ -17,6 +17,8 @@ dependencies = [
 [project.scripts]
 ares = "local_llm.ares_app:main"
 local-llm-prepare-corpus = "local_llm.prepare_corpus:main"
+local-llm-prepare-public-domain = "local_llm.prepare_public_domain_corpus:main"
+local-llm-prepare-instructions = "local_llm.prepare_instruction_corpus:main"
 local-llm-train = "local_llm.train:main"
 local-llm-generate = "local_llm.generate:main"
 local-code-agent = "local_llm.agent:main"
@@ -29,6 +31,10 @@ dev = [
 app = [
     "pillow>=10.0",
     "pyinstaller>=6.0",
+]
+visual = [
+    "pillow>=10.0",
+    "playwright>=1.45",
 ]
 
 [tool.setuptools.packages.find]

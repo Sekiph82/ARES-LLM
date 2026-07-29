@@ -9,6 +9,8 @@ from pathlib import Path
 class TrainingPreset:
     name: str
     stage: str
+    tokenizer: str
+    bpe_vocab_size: int
     max_steps: int
     batch_size: int
     block_size: int
@@ -21,12 +23,15 @@ class TrainingPreset:
 
 
 TRAINING_PRESETS = {
-    "LLM.C CPU Demo": TrainingPreset("LLM.C CPU Demo", "pretrain", 40, 4, 64, 2, 2, 64, 20, 8, 1),
-    "Tiny CPU": TrainingPreset("Tiny CPU", "pretrain", 250, 8, 64, 2, 2, 64, 50, 10, 10),
-    "Small CPU": TrainingPreset("Small CPU", "pretrain", 700, 8, 96, 3, 3, 96, 70, 12, 10),
-    "Longer experiment": TrainingPreset("Longer experiment", "pretrain", 1500, 8, 128, 4, 4, 128, 100, 16, 25),
-    "Ares SFT CPU Demo": TrainingPreset("Ares SFT CPU Demo", "sft", 80, 4, 96, 2, 2, 64, 20, 8, 1),
-    "Ares SFT Small CPU": TrainingPreset("Ares SFT Small CPU", "sft", 400, 6, 128, 3, 2, 96, 50, 10, 10),
+    "LLM.C CPU Demo": TrainingPreset("LLM.C CPU Demo", "pretrain", "char", 512, 40, 4, 64, 2, 2, 64, 20, 8, 1),
+    "Tiny CPU": TrainingPreset("Tiny CPU", "pretrain", "char", 512, 250, 8, 64, 2, 2, 64, 50, 10, 10),
+    "Small CPU": TrainingPreset("Small CPU", "pretrain", "char", 512, 700, 8, 96, 3, 3, 96, 70, 12, 10),
+    "Longer experiment": TrainingPreset("Longer experiment", "pretrain", "char", 512, 1500, 8, 128, 4, 4, 128, 100, 16, 25),
+    "BPE CPU Demo": TrainingPreset("BPE CPU Demo", "pretrain", "bpe", 512, 80, 4, 96, 2, 2, 64, 20, 8, 1),
+    "Ares SFT CPU Demo": TrainingPreset("Ares SFT CPU Demo", "sft", "char", 512, 80, 4, 96, 2, 2, 64, 20, 8, 1),
+    "Ares SFT BPE Demo": TrainingPreset("Ares SFT BPE Demo", "sft", "bpe", 512, 80, 4, 96, 2, 2, 64, 20, 8, 1),
+    "Ares SFT Small CPU": TrainingPreset("Ares SFT Small CPU", "sft", "char", 512, 400, 6, 128, 3, 2, 96, 50, 10, 10),
+    "13M BPE Experiment": TrainingPreset("13M BPE Experiment", "pretrain", "bpe", 50304, 1000, 4, 128, 1, 8, 128, 100, 12, 10),
 }
 
 
@@ -36,6 +41,10 @@ def preset_args(preset: TrainingPreset) -> list[str]:
         str(preset.max_steps),
         "--stage",
         preset.stage,
+        "--tokenizer",
+        preset.tokenizer,
+        "--bpe-vocab-size",
+        str(preset.bpe_vocab_size),
         "--batch-size",
         str(preset.batch_size),
         "--block-size",
