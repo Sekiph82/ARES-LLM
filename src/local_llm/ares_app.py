@@ -444,10 +444,11 @@ class AresApp(tk.Tk):
             "BPE presets add learned pair-token merges. Ares SFT presets add chat formatting and assistant-only masked loss.\n"
             "Training runs save metrics.json, training_log.csv, validation_curve.svg, and runs/experiments.jsonl.\n"
             "\nMedia note:\n"
-            "Image/video requests create local storyboard, keyframe PNGs, an animated GIF, and a Remotion project under artifacts/.\n"
+            "Image/video requests create local storyboard, keyframe PNGs, animated GIF, MP4 when FFmpeg is available, and a Remotion project under artifacts/.\n"
             "This is a local procedural pipeline for planning and previews, not a large diffusion/video model.\n"
             "Optional backend bridges can be configured with ARES_VIMAX_DIR, ARES_HUNYUANVIDEO_DIR,\n"
-            "ARES_COGVIDEO_DIR, ARES_TOONFLOW_URL, or ARES_OPEN_GENERATIVE_AI_URL.\n\n"
+            "ARES_COGVIDEO_DIR, ARES_TOONFLOW_URL, ARES_OPEN_GENERATIVE_AI_URL, ARES_FFMPEG_PATH,\n"
+            "ARES_MONEYPRINTER_DIR, ARES_IMAGINAIRY_CMD, or ARES_INFINITETALK_DIR.\n\n"
             f"{format_backend_statuses()}"
             "\nSelf-learning note:\n"
             "Ares learns safely through local memory in data/ares_memory.md, not by silently retraining itself.\n"
@@ -560,6 +561,8 @@ class AresApp(tk.Tk):
             self.messages.put(f"Created local media artifact:\n{result.root}\n")
             self.messages.put(f"Backend:\n{result.backend_name}\n")
             self.messages.put(f"Animated video:\n{result.video_path}\n")
+            if result.mp4_path is not None:
+                self.messages.put(f"MP4 video:\n{result.mp4_path}\n")
             self.messages.put(f"Storyboard:\n{result.storyboard_markdown}\n")
             self.messages.put(f"Storyboard image:\n{result.storyboard_image}\n")
             self.messages.put(f"Keyframes: {len(result.keyframes)} | Frames: {len(result.frames)}\n")

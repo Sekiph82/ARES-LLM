@@ -69,6 +69,23 @@ the practical ideas folded into Ares.
 - `remotion-dev/remotion`: programmatic video is strongest when the video is
   editable source code. Ares now exports each media artifact as a Remotion-ready
   React project so the generated storyboard can become an MP4 composition.
+- `FFmpeg/FFmpeg`: Ares should rely on the standard multimedia toolchain for
+  encoding and later muxing. Ares now writes PNG frames and asks FFmpeg to
+  create `video.mp4` when available.
+- `harry0703/MoneyPrinterTurbo`: short-video creation is an end-to-end workflow:
+  topic, hook, script, captions, voice, assets, and final package. Ares adds a
+  backend target and prompt package for that style of production.
+- `brycedrennan/imaginAIry`: local image/video generation should be optional and
+  command-backed. Ares can now detect `aimg`/`imagine` or `ARES_IMAGINAIRY_CMD`
+  as a future source of real generated images.
+- `MeiGen-AI/InfiniteTalk`: talking avatar and dubbing workflows need audio,
+  identity, expression, and duration metadata. Ares adds a backend target for
+  audio-driven video handoff packages.
+- `huggingface/pytorch-image-models`: visual QA can later use pretrained image
+  encoders and backbones. Ares adds a `timm` backend status entry.
+- `WZMIAOMIAO/deep-learning-for-image-processing`: Ares uses this as a computer
+  vision learning roadmap for future classification, detection, segmentation,
+  and keypoint QA tasks.
 
 ## Deferred Ideas
 

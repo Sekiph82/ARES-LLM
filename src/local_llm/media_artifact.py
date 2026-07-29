@@ -14,6 +14,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from local_llm.media_backends import backend_prompt_package, choose_backend, format_backend_statuses
+from local_llm.video_encode import encode_mp4_from_frames
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ class MediaArtifactResult:
     keyframes: list[Path]
     frames: list[Path]
     video_path: Path
+    mp4_path: Path | None
     storyboard_image: Path
     storyboard_markdown: Path
     manifest_path: Path
@@ -552,6 +554,7 @@ def create_media_artifact(
     fps: int = 8,
     backend: str = "auto",
     remotion: bool = True,
+    mp4: bool = True,
 ) -> MediaArtifactResult:
     repo = repo.resolve()
     width = max(240, min(1920, width))
@@ -596,6 +599,12 @@ def create_media_artifact(
             duration=int(1000 / fps),
             loop=0,
         )
+    mp4_path = None
+    mp4_result = None
+    if mp4:
+        mp4_result = encode_mp4_from_frames(frames_dir, root / "video.mp4", fps=fps)
+        if mp4_result.ok:
+            mp4_path = mp4_result.output
     storyboard_image = _write_storyboard_image(root, plan, keyframes)
     storyboard_markdown = _write_storyboard_markdown(root, plan, video_path, keyframes)
     remotion_project = None
@@ -629,6 +638,13 @@ def create_media_artifact(
         "duration_sec": round(len(plan.shots) * frames_per_shot / fps, 3),
         "requested_duration_sec": requested_duration_sec,
         "video": video_path.name,
+        "video_mp4": mp4_path.name if mp4_path is not None else None,
+        "ffmpeg": {
+            "attempted": mp4,
+            "ok": bool(mp4_result.ok) if mp4_result is not None else False,
+            "message": mp4_result.message if mp4_result is not None else "MP4 export was disabled.",
+            "command": mp4_result.command if mp4_result is not None else [],
+        },
         "storyboard": storyboard_markdown.name,
         "storyboard_image": storyboard_image.name,
         "remotion_project": str(remotion_project.relative_to(root)) if remotion_project is not None else None,
@@ -646,6 +662,7 @@ def create_media_artifact(
         keyframes=keyframes,
         frames=frames,
         video_path=video_path,
+        mp4_path=mp4_path,
         storyboard_image=storyboard_image,
         storyboard_markdown=storyboard_markdown,
         manifest_path=manifest_path,
@@ -664,6 +681,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=int, default=8)
     parser.add_argument("--backend", default="auto", help="Media backend name or auto.")
     parser.add_argument("--no-remotion", action="store_true", help="Skip Remotion project export.")
+    parser.add_argument("--no-mp4", action="store_true", help="Skip FFmpeg MP4 export.")
     parser.add_argument("--list-backends", action="store_true", help="Print available backend status and exit.")
     return parser.parse_args()
 
@@ -686,10 +704,13 @@ def main() -> None:
         fps=args.fps,
         backend=args.backend,
         remotion=not args.no_remotion,
+        mp4=not args.no_mp4,
     )
     print(f"Created media artifact: {result.root}")
     print(f"Backend: {result.backend_name}")
     print(f"Video: {result.video_path}")
+    if result.mp4_path is not None:
+        print(f"MP4: {result.mp4_path}")
     print(f"Storyboard: {result.storyboard_markdown}")
     if result.remotion_project is not None:
         print(f"Remotion project: {result.remotion_project}")

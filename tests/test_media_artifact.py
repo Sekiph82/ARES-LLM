@@ -44,6 +44,8 @@ def test_create_media_artifact_writes_video_storyboard_and_manifest(tmp_path) ->
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     assert manifest["kind"] == "local-media"
     assert manifest["format"] == "animated-gif"
+    assert "ffmpeg" in manifest
+    assert "video_mp4" in manifest
     assert manifest["backend"]["selected"] == "procedural"
     assert manifest["prompt_package"]["enhanced_prompt"]
     assert manifest["shot_count"] == 2
@@ -75,7 +77,23 @@ def test_media_requests_route_to_media_artifacts() -> None:
 def test_media_backend_registry_has_requested_projects() -> None:
     names = set(backend_names())
 
-    assert {"vimax", "hunyuanvideo", "cogvideo", "toonflow", "open-generative-ai", "remotion", "procedural"} <= names
+    assert {
+        "vimax",
+        "hunyuanvideo",
+        "cogvideo",
+        "toonflow",
+        "open-generative-ai",
+        "remotion",
+        "procedural",
+        "ffmpeg",
+        "moneyprinterturbo",
+        "imaginairy",
+        "infinitetalk",
+        "timm",
+        "image-processing-learning",
+    } <= names
     assert media_backend_status("procedural").configured
     assert media_backend_status("remotion").configured
+    assert media_backend_status("image-processing-learning").configured
     assert choose_backend("auto", "Create a realistic cinematic film").spec.name == "procedural"
+    assert choose_backend("auto", "Create a talking avatar with lip sync").spec.name in {"infinitetalk", "remotion"}

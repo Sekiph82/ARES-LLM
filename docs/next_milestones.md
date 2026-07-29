@@ -29,6 +29,11 @@ and agent upgrade.
   Generative AI while falling back to the built-in renderer.
 - **Remotion export**: media artifacts include an editable React/Remotion
   project for previewing and rendering MP4 videos through Node.js.
+- **FFmpeg export**: when FFmpeg is available, Ares encodes generated PNG frames
+  into `video.mp4` in addition to `video.gif`.
+- **Expanded media backend targets**: backend status and handoff packages now
+  include MoneyPrinterTurbo, imaginAIry, InfiniteTalk, timm, and image-processing
+  learning references.
 
 ## Important Limits
 
@@ -49,3 +54,6 @@ before Ares can hand work to them.
 
 Remotion export creates project files only. Rendering MP4 requires Node.js and
 the Remotion dependencies installed inside the generated artifact folder.
+
+FFmpeg MP4 export requires an installed FFmpeg executable on `PATH` or
+`ARES_FFMPEG_PATH`.

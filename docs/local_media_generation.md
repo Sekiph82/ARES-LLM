@@ -1,7 +1,8 @@
 # Local Media Generation
 
 Ares includes a ViMax-inspired local media pipeline. It turns a prompt into a
-storyboard, keyframe PNGs, a frame sequence, and an animated GIF.
+storyboard, keyframe PNGs, a frame sequence, an animated GIF, and an MP4 when
+FFmpeg is available.
 
 The goal is a local creative planning tool:
 
@@ -42,6 +43,7 @@ artifacts\media-<brief-slug>-<timestamp>\
 Each run includes:
 
 - `video.gif`
+- `video.mp4` when FFmpeg is available
 - `storyboard.png`
 - `storyboard.md`
 - `ares-media.json`
@@ -72,6 +74,17 @@ Ares now has a backend registry for the repositories you requested:
 - **Remotion**: React video export, editable animated compositions, and MP4
   rendering through Node.js.
 - **Ares Procedural Renderer**: always-available local fallback.
+- **FFmpeg**: local MP4 encoding, future audio/video muxing, and media
+  inspection.
+- **MoneyPrinterTurbo**: topic-to-short-video automation shape: hook, script,
+  captions, voice, assets, and social-video packaging.
+- **imaginAIry**: optional Stable Diffusion and Stable Video Diffusion command
+  backend for real image/video generation when separately installed.
+- **InfiniteTalk**: optional audio-driven talking-video and dubbing backend.
+- **PyTorch Image Models**: optional timm model zoo for future visual scoring
+  and image classification checks.
+- **Deep Learning For Image Processing**: reference roadmap for classification,
+  detection, segmentation, and keypoint QA.
 
 Configure optional external backends with environment variables:
 
@@ -81,6 +94,10 @@ ARES_HUNYUANVIDEO_DIR
 ARES_COGVIDEO_DIR
 ARES_TOONFLOW_URL
 ARES_OPEN_GENERATIVE_AI_URL
+ARES_FFMPEG_PATH
+ARES_MONEYPRINTER_DIR
+ARES_IMAGINAIRY_CMD
+ARES_INFINITETALK_DIR
 ```
 
 When an external backend is not configured, Ares still creates the local
@@ -117,6 +134,20 @@ The generated project includes:
 Remotion has its own license terms, including special commercial-use conditions
 in some cases. Check the Remotion license before using rendered videos
 commercially.
+
+## FFmpeg MP4 Export
+
+Ares uses FFmpeg when it is available. It writes PNG frames first, then creates
+`video.mp4` using a concat file so frame timing stays stable.
+
+Disable MP4 export:
+
+```powershell
+python -m local_llm.media_artifact "Create a product video" --no-mp4
+```
+
+FFmpeg licensing depends on the build and enabled codecs. Check the FFmpeg
+license and your installed build before commercial distribution.
 
 Future upgrades can execute those bridges directly, call local HTTP services,
 or plug in local models such as Stable Diffusion, ComfyUI, AnimateDiff, or other

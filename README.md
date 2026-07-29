@@ -162,7 +162,9 @@ Ares can create lightweight local media artifacts inspired by agentic video
 generation workflows. It plans the prompt into shots, keeps a consistent visual
 style, renders keyframe PNGs, writes a storyboard, and assembles an animated
 GIF locally with Pillow. It also records backend handoff data for ViMax,
-HunyuanVideo, CogVideoX, Toonflow, Open Generative AI, and Remotion.
+HunyuanVideo, CogVideoX, Toonflow, Open Generative AI, Remotion, FFmpeg,
+MoneyPrinterTurbo, imaginAIry, InfiniteTalk, timm, and computer-vision learning
+references.
 
 ```powershell
 python -m local_llm.media_artifact "Create a cinematic Ares launch video with code, dashboard, and logo"
@@ -183,6 +185,7 @@ artifacts\media-<brief-slug>-<timestamp>\
 Each media artifact includes:
 
 - `video.gif`
+- `video.mp4` when FFmpeg is available
 - `storyboard.png`
 - `storyboard.md`
 - `ares-media.json`
@@ -198,6 +201,9 @@ npm install
 npm run preview
 npm run render
 ```
+
+Ares detects FFmpeg from `PATH` or `ARES_FFMPEG_PATH`. When available, it
+encodes generated PNG frames into `video.mp4` automatically.
 
 This first version is a local procedural storyboard and preview renderer, not a
 large diffusion/video model. See [docs/local_media_generation.md](docs/local_media_generation.md)

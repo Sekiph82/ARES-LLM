@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import os
+import shutil
+import importlib.util
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from local_llm.video_encode import resolve_ffmpeg
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,17 @@ BACKENDS: dict[str, MediaBackendSpec] = {
         min_vram_gb=None,
         local_setup="No setup required. Uses Pillow inside Ares.",
         bridge_kind="internal",
+    ),
+    "ffmpeg": MediaBackendSpec(
+        name="ffmpeg",
+        display_name="FFmpeg Encoder",
+        repo_url="https://github.com/FFmpeg/FFmpeg",
+        modes=("mp4-export", "gif-conversion", "audio-video-muxing", "media-inspection"),
+        strengths=("industry standard media tooling", "local MP4 output", "audio/video composition"),
+        min_vram_gb=None,
+        local_setup="Install FFmpeg on PATH or set ARES_FFMPEG_PATH to ffmpeg.exe.",
+        bridge_kind="command",
+        env_var="ARES_FFMPEG_PATH",
     ),
     "remotion": MediaBackendSpec(
         name="remotion",
@@ -102,6 +117,59 @@ BACKENDS: dict[str, MediaBackendSpec] = {
         bridge_kind="http",
         env_var="ARES_OPEN_GENERATIVE_AI_URL",
     ),
+    "moneyprinterturbo": MediaBackendSpec(
+        name="moneyprinterturbo",
+        display_name="MoneyPrinterTurbo",
+        repo_url="https://github.com/harry0703/MoneyPrinterTurbo",
+        modes=("topic-to-short-video", "script-assets-voice", "social-video-workflow"),
+        strengths=("one-topic short video workflow", "automated asset pipeline", "creator-oriented packaging"),
+        min_vram_gb=None,
+        local_setup="Set ARES_MONEYPRINTER_DIR to a local MoneyPrinterTurbo checkout.",
+        bridge_kind="command",
+        env_var="ARES_MONEYPRINTER_DIR",
+    ),
+    "imaginairy": MediaBackendSpec(
+        name="imaginairy",
+        display_name="imaginAIry",
+        repo_url="https://github.com/brycedrennan/imaginAIry",
+        modes=("text-to-image", "image-to-video", "image-editing", "upscaling"),
+        strengths=("Pythonic image generation", "Stable Diffusion workflows", "Stable Video Diffusion CLI"),
+        min_vram_gb=8,
+        local_setup="Install imaginairy/aimg in a separate environment, or set ARES_IMAGINAIRY_CMD.",
+        bridge_kind="command",
+        env_var="ARES_IMAGINAIRY_CMD",
+    ),
+    "infinitetalk": MediaBackendSpec(
+        name="infinitetalk",
+        display_name="InfiniteTalk",
+        repo_url="https://github.com/MeiGen-AI/InfiniteTalk",
+        modes=("audio-driven-video", "talking-avatar", "video-dubbing", "image-audio-to-video"),
+        strengths=("long talking videos", "lip sync", "identity-preserving dubbing"),
+        min_vram_gb=None,
+        local_setup="Set ARES_INFINITETALK_DIR to a local InfiniteTalk checkout with its model environment installed.",
+        bridge_kind="command",
+        env_var="ARES_INFINITETALK_DIR",
+    ),
+    "timm": MediaBackendSpec(
+        name="timm",
+        display_name="PyTorch Image Models",
+        repo_url="https://github.com/huggingface/pytorch-image-models",
+        modes=("image-classification", "embedding-backbones", "visual-qa-scoring"),
+        strengths=("large model zoo", "pretrained vision backbones", "image quality/classification checks"),
+        min_vram_gb=None,
+        local_setup="Install timm in the Python environment when Ares needs pretrained visual scoring.",
+        bridge_kind="python-package",
+    ),
+    "image-processing-learning": MediaBackendSpec(
+        name="image-processing-learning",
+        display_name="Deep Learning For Image Processing",
+        repo_url="https://github.com/WZMIAOMIAO/deep-learning-for-image-processing",
+        modes=("classification-learning", "detection-learning", "segmentation-learning", "keypoint-learning"),
+        strengths=("computer vision learning roadmap", "classification/detection/segmentation references"),
+        min_vram_gb=None,
+        local_setup="Reference backend only. Ares uses these ideas for future image QA and model training notes.",
+        bridge_kind="reference",
+    ),
 }
 
 
@@ -120,6 +188,14 @@ def media_backend_status(name: str) -> MediaBackendStatus:
     spec = get_backend(name)
     if spec.name == "procedural":
         return MediaBackendStatus(spec, True, "Built into Ares.", "Ares will render the artifact directly.")
+    if spec.name == "ffmpeg":
+        ffmpeg = resolve_ffmpeg()
+        return MediaBackendStatus(
+            spec,
+            ffmpeg.available,
+            ffmpeg.reason,
+            "Ares will create video.mp4 from generated frames." if ffmpeg.available else spec.local_setup,
+        )
     if spec.name == "remotion":
         return MediaBackendStatus(
             spec,
@@ -127,6 +203,29 @@ def media_backend_status(name: str) -> MediaBackendStatus:
             "Ares can export Remotion-ready project files.",
             "Run npm install and npm run preview inside the generated remotion folder.",
         )
+    if spec.name == "imaginairy":
+        override = os.environ.get("ARES_IMAGINAIRY_CMD", "").strip()
+        if override:
+            command_path = Path(override).expanduser()
+            if command_path.exists():
+                return MediaBackendStatus(spec, True, f"ARES_IMAGINAIRY_CMD points to {command_path}.", build_launch_hint(spec, command_path))
+            if shutil.which(override):
+                return MediaBackendStatus(spec, True, f"ARES_IMAGINAIRY_CMD resolves to {override}.", build_launch_hint(spec, override))
+            return MediaBackendStatus(spec, False, f"ARES_IMAGINAIRY_CMD is set but was not found: {override}", spec.local_setup)
+        found = shutil.which("aimg") or shutil.which("imagine")
+        if found:
+            return MediaBackendStatus(spec, True, f"imaginAIry command was found at {found}.", build_launch_hint(spec, found))
+        return MediaBackendStatus(spec, False, "aimg/imagine was not found on PATH.", spec.local_setup)
+    if spec.name == "timm":
+        found = importlib.util.find_spec("timm") is not None
+        return MediaBackendStatus(
+            spec,
+            found,
+            "Python package timm is installed." if found else "Python package timm is not installed.",
+            "Use timm models for future visual QA scoring." if found else spec.local_setup,
+        )
+    if spec.name == "image-processing-learning":
+        return MediaBackendStatus(spec, True, "Reference backend is available through documented Ares research notes.", spec.local_setup)
     if spec.env_var is None:
         return MediaBackendStatus(spec, False, "No configuration variable is defined.", "Use the procedural backend.")
 
@@ -149,7 +248,13 @@ def choose_backend(preferred: str = "auto", brief: str = "") -> MediaBackendStat
 
     text = brief.lower()
     priority = ["procedural"]
-    if "remotion" in text or "react video" in text or "programmatic video" in text:
+    if any(word in text for word in ("talking", "avatar", "lip sync", "dub", "dubbing", "audio driven")):
+        priority = ["infinitetalk", "remotion", "procedural"]
+    elif any(word in text for word in ("short video", "viral", "youtube shorts", "tiktok", "reels")):
+        priority = ["moneyprinterturbo", "remotion", "ffmpeg", "procedural"]
+    elif any(word in text for word in ("stable diffusion", "sdxl", "upscale", "image edit")):
+        priority = ["imaginairy", "open-generative-ai", "procedural"]
+    elif "remotion" in text or "react video" in text or "programmatic video" in text:
         priority = ["remotion", "procedural"]
     elif any(word in text for word in ("drama", "script", "episode", "character", "toon", "animation")):
         priority = ["toonflow", "vimax", "cogvideo", "procedural"]
@@ -181,6 +286,18 @@ def build_launch_hint(spec: MediaBackendSpec, target: Path | str) -> str:
         return f"Send the prompt package to the running Open Generative AI studio at {target}."
     if spec.name == "remotion":
         return "Run npm install and npm run preview inside the generated remotion folder."
+    if spec.name == "ffmpeg":
+        return "Ares will call FFmpeg to encode generated PNG frames into video.mp4."
+    if spec.name == "moneyprinterturbo":
+        return f"Use {target} as the short-video automation workspace and hand it Ares' topic/script package."
+    if spec.name == "imaginairy":
+        return f"Use {target} to generate source images or image-to-video clips from Ares' enhanced prompt."
+    if spec.name == "infinitetalk":
+        return f"From {target}, run InfiniteTalk with Ares' avatar/audio/video handoff package."
+    if spec.name == "timm":
+        return "Use timm backbones for future visual classification and artifact QA scoring."
+    if spec.name == "image-processing-learning":
+        return "Use the repo as a learning/reference map for classification, detection, segmentation, and keypoint tasks."
     return "Ares will render the artifact directly."
 
 
@@ -201,6 +318,18 @@ def backend_prompt_package(brief: str, backend: MediaBackendSpec) -> dict[str, o
         prompt = f"Create an idea-to-video plan with story, shots, characters, storyboard, and render checkpoints: {brief}"
     elif backend.name == "remotion":
         prompt = f"Turn this into a data-driven React video composition with animated scenes and captions: {brief}"
+    elif backend.name == "ffmpeg":
+        prompt = f"Create a clean video assembly plan with frame timing, captions, audio slots, and MP4 export settings: {brief}"
+    elif backend.name == "moneyprinterturbo":
+        prompt = f"Create a short-video production package: hook, script, scene list, captions, voiceover notes, keywords, and aspect ratio for: {brief}"
+    elif backend.name == "imaginairy":
+        prompt = f"{brief}. Generate Stable Diffusion-ready prompts, negative prompts, seed guidance, size, style, and optional image-to-video instructions."
+    elif backend.name == "infinitetalk":
+        prompt = f"Create an audio-driven talking-video package with avatar description, voice/audio requirements, expressions, and dubbing notes for: {brief}"
+    elif backend.name == "timm":
+        prompt = f"Create a visual QA checklist and candidate image classification labels for: {brief}"
+    elif backend.name == "image-processing-learning":
+        prompt = f"Map this task to computer vision learning areas: classification, detection, segmentation, keypoints, and evaluation for: {brief}"
     else:
         prompt = f"{brief}. {camera_language}"
     return {
