@@ -1,6 +1,9 @@
-# LLM
+# ARES-LLM
 
 A small local GPT-style language model built from scratch in PyTorch.
+
+Canonical repository:
+[github.com/Sekiph82/ARES-LLM](https://github.com/Sekiph82/ARES-LLM)
 
 This project has two tracks:
 
@@ -49,6 +52,8 @@ memory loop works.
 ## Setup
 
 ```powershell
+git clone https://github.com/Sekiph82/ARES-LLM.git
+cd ARES-LLM
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
