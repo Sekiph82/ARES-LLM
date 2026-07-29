@@ -12,12 +12,15 @@ from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
 
 from local_llm.agent_core import DEFAULT_MODEL, MODE_INSTRUCTIONS, ask_agent
+from local_llm.app_config import AresConfig, load_config, save_local_config
 from local_llm.commerce import check_commerce_connections, format_commerce_checks
+from local_llm.healthcheck import format_health_report, run_healthcheck
 from local_llm.media_backends import format_backend_statuses
 from local_llm.media_artifact import create_media_artifact
 from local_llm.memory import append_memory
 from local_llm.ollama_client import OllamaClient
-from local_llm.patch_ops import apply_patch_with_backup, check_patch
+from local_llm.ollama_manager import create_ares_coder, format_model_status, installed_models, model_status, test_model
+from local_llm.patch_ops import apply_patch_with_backup, check_patch, summarize_patch
 from local_llm.patches import extract_unified_diffs
 from local_llm.repo_index import build_repo_index, format_repo_index
 from local_llm.session_log import load_agent_sessions
@@ -58,7 +61,8 @@ class AresApp(tk.Tk):
         self.text_widgets: list[tk.Text] = []
         self.sidebar_session_list: tk.Listbox | None = None
 
-        self.model = tk.StringVar(value=DEFAULT_MODEL)
+        self.config: AresConfig = load_config(self.repo_root)
+        self.model = tk.StringVar(value=self.config.default_model or DEFAULT_MODEL)
         self.mode = tk.StringVar(value="answer")
         self.training_preset = tk.StringVar(value="LLM.C CPU Demo")
         self.corpus_path = tk.StringVar(value="data/ares_corpus.txt")
@@ -318,7 +322,14 @@ class AresApp(tk.Tk):
         self.preview_patch_button = self._button(toolbar, "Preview Latest Patch", self.preview_latest_patch)
         self.apply_patch_button = self._button(toolbar, "Apply Patch", self.apply_latest_patch, style="Accent.TButton")
         self.check_patch_button = self._button(toolbar, "Check Patch", self.check_latest_patch)
+        self.save_patch_button = self._button(toolbar, "Save Patch", self.save_current_patch)
+        self.reject_patch_button = self._button(toolbar, "Reject Patch", self.reject_current_patch)
         self.diff_tests_button = self._button(toolbar, "Run Tests", self.run_tests)
+
+        ttk.Label(self.diff_tab, text="Patch Summary").pack(anchor=tk.W)
+        self.patch_summary_text = scrolledtext.ScrolledText(self.diff_tab, height=7, wrap=tk.WORD, font=("Consolas", 9))
+        self.patch_summary_text.pack(fill=tk.X, pady=(6, 10))
+        self.patch_summary_text.insert(tk.END, "No patch preview yet.\n")
 
         ttk.Label(self.diff_tab, text="Patch Preview").pack(anchor=tk.W)
         self.patch_text = scrolledtext.ScrolledText(self.diff_tab, wrap=tk.NONE, font=("Consolas", 9))
@@ -413,7 +424,14 @@ class AresApp(tk.Tk):
 
     def _build_settings_tab(self) -> None:
         ttk.Label(self.settings_tab, text="Local Model").pack(anchor=tk.W)
-        ttk.Entry(self.settings_tab, textvariable=self.model, width=36).pack(anchor=tk.W, pady=(6, 14))
+        model_row = ttk.Frame(self.settings_tab)
+        model_row.pack(fill=tk.X, pady=(6, 10))
+        self.model_box = ttk.Combobox(model_row, textvariable=self.model, width=34)
+        self.model_box.pack(side=tk.LEFT, padx=(0, 10))
+        self.refresh_models_button = self._button(model_row, "Refresh Models", self.refresh_ollama_models)
+        self.test_model_button = self._button(model_row, "Test Model", self.test_ollama_model)
+        self.create_model_button = self._button(model_row, "Create Ares Coder", self.create_ares_coder_model)
+
         ttk.Label(self.settings_tab, text="Agent Mode").pack(anchor=tk.W)
         self.mode_box = ttk.Combobox(
             self.settings_tab,
@@ -423,6 +441,11 @@ class AresApp(tk.Tk):
             state="readonly",
         )
         self.mode_box.pack(anchor=tk.W, pady=(6, 14))
+        settings_toolbar = ttk.Frame(self.settings_tab)
+        settings_toolbar.pack(fill=tk.X, pady=(0, 10))
+        self.save_settings_button = self._button(settings_toolbar, "Save Local Settings", self.save_local_settings)
+        self.health_button = self._button(settings_toolbar, "Run Health Check", self.run_health_check)
+
         info = (
             "Ares is configured for local-first coding through Ollama.\n\n"
             "Implemented panels:\n"
@@ -458,8 +481,21 @@ class AresApp(tk.Tk):
             "\nCommerce note:\n"
             "Shopify and Etsy credentials are read from environment variables so secrets are not saved in this repo.\n"
         )
-        text = scrolledtext.ScrolledText(self.settings_tab, wrap=tk.WORD, font=("Consolas", 10))
-        text.pack(fill=tk.BOTH, expand=True)
+        panes = ttk.PanedWindow(self.settings_tab, orient=tk.HORIZONTAL)
+        panes.pack(fill=tk.BOTH, expand=True)
+        left = ttk.Frame(panes)
+        right = ttk.Frame(panes)
+        panes.add(left, weight=2)
+        panes.add(right, weight=3)
+
+        ttk.Label(left, text="Health And Model Output").pack(anchor=tk.W)
+        self.settings_output = scrolledtext.ScrolledText(left, wrap=tk.WORD, font=("Consolas", 9))
+        self.settings_output.pack(fill=tk.BOTH, expand=True, pady=(6, 0))
+        self.settings_output.insert(tk.END, "Run Health Check or Refresh Models to inspect this laptop setup.\n")
+
+        ttk.Label(right, text="Notes").pack(anchor=tk.W)
+        text = scrolledtext.ScrolledText(right, wrap=tk.WORD, font=("Consolas", 9))
+        text.pack(fill=tk.BOTH, expand=True, pady=(6, 0))
         text.insert(tk.END, info)
         text.configure(state=tk.DISABLED)
 
@@ -514,7 +550,7 @@ class AresApp(tk.Tk):
 
     def _ask_ares_worker(self, task: str) -> None:
         try:
-            client = ensure_ollama_client()
+            client = ensure_ollama_client(self.config.ollama_base_url)
             result = ask_agent(
                 task=task,
                 repo=self.repo_root,
@@ -556,10 +592,17 @@ class AresApp(tk.Tk):
 
     def _create_short_video_worker(self, topic: str) -> None:
         try:
+            defaults = self.config.short_video
             result = create_short_video(
                 topic=topic,
                 repo=self.repo_root,
-                config=ShortVideoConfig(fps=24, scene_count=5),
+                config=ShortVideoConfig(
+                    aspect=defaults.aspect,
+                    fps=defaults.fps,
+                    scene_count=defaults.scene_count,
+                    voiceover=defaults.voiceover,
+                    background_music=defaults.background_music,
+                ),
             )
             self.messages.put(f"Created short-video artifact:\n{result.root}\n")
             if result.video_path is not None:
@@ -631,7 +674,7 @@ class AresApp(tk.Tk):
 
     def _create_website_app_worker(self, brief: str) -> None:
         try:
-            client = ensure_ollama_client()
+            client = ensure_ollama_client(self.config.ollama_base_url)
             result = create_web_artifact(
                 brief=brief,
                 repo=self.repo_root,
@@ -656,7 +699,8 @@ class AresApp(tk.Tk):
 
     def run_tests(self) -> None:
         python_exe = self.python_exe()
-        command = [str(python_exe), "-m", "pytest", "-q"]
+        configured = list(self.config.test_command or ["python", "-m", "pytest", "-q"])
+        command = [str(python_exe), *configured[1:]] if configured and configured[0] in {"python", "python.exe"} else configured
         self._set_busy(True, "Running tests...")
         self._append_output("\n[Tests] Running pytest\n\n")
         thread = threading.Thread(target=self._run_process_worker, args=(command, "[Tests]"), daemon=True)
@@ -772,15 +816,94 @@ class AresApp(tk.Tk):
         webbrowser.open("https://www.etsy.com/developers/your-apps")
         self.commerce_output.insert(tk.END, "\nOpened Etsy developer apps page in your browser.\n")
 
+    def run_health_check(self) -> None:
+        self._set_busy(True, "Running health check...")
+        self.settings_output.delete("1.0", tk.END)
+        self.settings_output.insert(tk.END, "Checking Ares local setup...\n")
+        thread = threading.Thread(target=self._health_check_worker, daemon=True)
+        thread.start()
+
+    def _health_check_worker(self) -> None:
+        try:
+            report = run_healthcheck(self.repo_root, model=self.model.get().strip() or DEFAULT_MODEL)
+            self.messages.put("__SETTINGS__" + format_health_report(report))
+        except Exception as exc:
+            self.messages.put("__SETTINGS__" + f"Health check failed: {exc}")
+        finally:
+            self.messages.put("__READY__")
+
+    def refresh_ollama_models(self) -> None:
+        self._set_busy(True, "Refreshing Ollama models...")
+        thread = threading.Thread(target=self._refresh_ollama_models_worker, daemon=True)
+        thread.start()
+
+    def _refresh_ollama_models_worker(self) -> None:
+        try:
+            client = ensure_ollama_client(self.config.ollama_base_url)
+            models = installed_models(client)
+            current = self.model.get().strip() or DEFAULT_MODEL
+            status = model_status(current, client)
+            self.messages.put("__MODELS__" + "\n".join(models))
+            self.messages.put("__SETTINGS__" + format_model_status(status))
+        except Exception as exc:
+            self.messages.put("__SETTINGS__" + f"Could not refresh Ollama models: {exc}")
+        finally:
+            self.messages.put("__READY__")
+
+    def test_ollama_model(self) -> None:
+        self._set_busy(True, "Testing Ollama model...")
+        thread = threading.Thread(target=self._test_ollama_model_worker, daemon=True)
+        thread.start()
+
+    def _test_ollama_model_worker(self) -> None:
+        try:
+            client = ensure_ollama_client(self.config.ollama_base_url)
+            model = self.model.get().strip() or DEFAULT_MODEL
+            response = test_model(model, client)
+            self.messages.put("__SETTINGS__" + f"Model test passed for {model}:\n{response}")
+        except Exception as exc:
+            self.messages.put("__SETTINGS__" + f"Model test failed: {exc}")
+        finally:
+            self.messages.put("__READY__")
+
+    def create_ares_coder_model(self) -> None:
+        self._set_busy(True, "Creating ares-coder...")
+        thread = threading.Thread(target=self._create_ares_coder_model_worker, daemon=True)
+        thread.start()
+
+    def _create_ares_coder_model_worker(self) -> None:
+        try:
+            completed = create_ares_coder(self.repo_root, model_name=self.model.get().strip() or DEFAULT_MODEL)
+            output = completed.stdout.strip() or f"ollama create exited with code {completed.returncode}"
+            self.messages.put("__SETTINGS__" + output)
+        except Exception as exc:
+            self.messages.put("__SETTINGS__" + f"Could not create Ares coder model: {exc}")
+        finally:
+            self.messages.put("__READY__")
+
+    def save_local_settings(self) -> None:
+        self.config = AresConfig(
+            ollama_base_url=self.config.ollama_base_url,
+            default_model=self.model.get().strip() or DEFAULT_MODEL,
+            recommended_model=self.config.recommended_model,
+            test_command=self.config.test_command,
+            short_video=self.config.short_video,
+        )
+        path = save_local_config(self.repo_root, self.config)
+        self.settings_output.delete("1.0", tk.END)
+        self.settings_output.insert(tk.END, f"Saved local settings to:\n{path}\n\nThis file is ignored by git.")
+
     def preview_latest_patch(self) -> None:
         bundle = extract_unified_diffs(self.latest_response)
         self.latest_patch = "\n".join(bundle.patches)
         self.patch_text.delete("1.0", tk.END)
         if self.latest_patch:
             self.patch_text.insert(tk.END, self.latest_patch)
+            self.update_patch_summary(self.latest_patch)
             self.notebook.select(self.diff_tab)
         else:
             self.patch_text.insert(tk.END, "No unified diff found in the latest Ares response.\n")
+            self.update_patch_summary("")
 
     def current_patch_text(self) -> str:
         text = self.patch_text.get("1.0", tk.END).strip()
@@ -791,6 +914,7 @@ class AresApp(tk.Tk):
     def check_latest_patch(self) -> None:
         patch_text = self.current_patch_text()
         result = check_patch(self.repo_root, patch_text)
+        self.update_patch_summary(patch_text)
         self.patch_text.insert(tk.END, f"\n[Patch check] {result.message}\n")
 
     def apply_latest_patch(self) -> None:
@@ -807,6 +931,39 @@ class AresApp(tk.Tk):
         if applied.backup_dir:
             self.patch_text.insert(tk.END, f"Backup: {applied.backup_dir}\n")
         self.refresh_git()
+
+    def update_patch_summary(self, patch_text: str) -> None:
+        self.patch_summary_text.delete("1.0", tk.END)
+        if not patch_text.strip():
+            self.patch_summary_text.insert(tk.END, "No patch preview yet.\n")
+            return
+        preview = summarize_patch(self.repo_root, patch_text)
+        lines = [
+            f"Safety: {'PASS' if preview.ok else 'BLOCKED'}",
+            preview.message,
+            f"Files: {len(preview.files)} | +{preview.total_additions} -{preview.total_deletions}",
+            "",
+        ]
+        for item in preview.files:
+            lines.append(f"{item.path.as_posix()}  +{item.additions} -{item.deletions}")
+        self.patch_summary_text.insert(tk.END, "\n".join(lines))
+
+    def save_current_patch(self) -> None:
+        patch_text = self.current_patch_text()
+        if not patch_text.strip():
+            messagebox.showinfo(APP_NAME, "No patch to save.")
+            return
+        out_dir = self.repo_root / "runs" / "agent" / "manual-patches"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / f"{self.latest_session_id}-{time.strftime('%Y%m%d-%H%M%S')}.patch"
+        path.write_text(patch_text, encoding="utf-8")
+        self.patch_summary_text.insert(tk.END, f"\n\nSaved patch:\n{path}")
+
+    def reject_current_patch(self) -> None:
+        self.latest_patch = ""
+        self.patch_text.delete("1.0", tk.END)
+        self.patch_text.insert(tk.END, "Patch rejected. Ask Ares for a new patch or paste one here.\n")
+        self.update_patch_summary("")
 
     def refresh_repo_index(self) -> None:
         try:
@@ -967,6 +1124,15 @@ class AresApp(tk.Tk):
                 self.commerce_output.delete("1.0", tk.END)
                 self.commerce_output.insert(tk.END, message.removeprefix("__COMMERCE__"))
                 self.commerce_output.see(tk.END)
+            elif message.startswith("__SETTINGS__"):
+                self.settings_output.delete("1.0", tk.END)
+                self.settings_output.insert(tk.END, message.removeprefix("__SETTINGS__"))
+                self.settings_output.see(tk.END)
+            elif message.startswith("__MODELS__"):
+                models = [line for line in message.removeprefix("__MODELS__").splitlines() if line.strip()]
+                self.model_box.configure(values=models)
+                if models and self.model.get().strip() not in models:
+                    self.model.set(models[0])
             else:
                 self._append_output(message)
         self.after(150, self._drain_messages)
@@ -977,8 +1143,8 @@ def asset_path(name: str) -> Path:
     return base / "assets" / name
 
 
-def ensure_ollama_client() -> OllamaClient:
-    client = OllamaClient(timeout=180)
+def ensure_ollama_client(base_url: str = "http://127.0.0.1:11434") -> OllamaClient:
+    client = OllamaClient(base_url=base_url, timeout=180)
     try:
         client.list_models()
         return client

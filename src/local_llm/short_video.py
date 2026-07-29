@@ -455,7 +455,118 @@ def mix_audio(voiceover: Path | None, music: Path | None, target: Path) -> Path 
     return target if completed.returncode == 0 and target.exists() else (voiceover or music)
 
 
-def compose_video(root: Path, assets: list[Path], audio: Path | None, target: Path, fps: int, durations: list[float]) -> Path | None:
+def compose_video(
+    root: Path,
+    assets: list[Path],
+    audio: Path | None,
+    target: Path,
+    fps: int,
+    durations: list[float],
+    aspect: AspectTemplate,
+) -> Path | None:
+    ffmpeg = resolve_ffmpeg()
+    if not ffmpeg.available or ffmpeg.executable is None:
+        return None
+    clips_dir = root / "clips"
+    clips_dir.mkdir(parents=True, exist_ok=True)
+    clip_paths: list[Path] = []
+    for index, (asset, duration) in enumerate(zip(assets, durations), start=1):
+        clip = clips_dir / f"scene-{index:02d}.mp4"
+        frames = max(1, int(duration * fps))
+        zoom_direction = "iw/2-(iw/zoom/2)" if index % 2 else "iw/2-(iw/zoom/2)+(on*0.35)"
+        filter_text = (
+            f"scale={int(aspect.width * 1.12)}:{int(aspect.height * 1.12)},"
+            f"zoompan=z='min(zoom+0.0015,1.08)':x='{zoom_direction}':"
+            f"y='ih/2-(ih/zoom/2)':d={frames}:s={aspect.width}x{aspect.height}:fps={fps},"
+            "format=yuv420p"
+        )
+        command = [
+            str(ffmpeg.executable),
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-loop",
+            "1",
+            "-i",
+            str(asset),
+            "-t",
+            f"{duration:.3f}",
+            "-vf",
+            filter_text,
+            "-an",
+            str(clip),
+        ]
+        completed = subprocess.run(command, cwd=root, capture_output=True, text=True, check=False)
+        if completed.returncode != 0 or not clip.exists():
+            return compose_still_video(root, assets, audio, target, fps, durations)
+        clip_paths.append(clip)
+
+    silent_video = root / "short_video_silent.mp4"
+    concat = root / "video.ffconcat"
+    lines = ["ffconcat version 1.0"]
+    for clip in clip_paths:
+        safe_path = clip.resolve().as_posix().replace("'", "'\\''")
+        lines.append(f"file '{safe_path}'")
+    concat.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    command = [
+        str(ffmpeg.executable),
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(concat),
+        "-c",
+        "copy",
+        str(silent_video),
+    ]
+    completed = subprocess.run(command, cwd=root, capture_output=True, text=True, check=False)
+    if completed.returncode != 0 or not silent_video.exists():
+        return compose_still_video(root, assets, audio, target, fps, durations)
+
+    if audio is not None and audio.exists():
+        command = [
+            str(ffmpeg.executable),
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(silent_video),
+            "-i",
+            str(audio),
+            "-shortest",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-movflags",
+            "+faststart",
+            str(target),
+        ]
+    else:
+        command = [
+            str(ffmpeg.executable),
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(silent_video),
+            "-movflags",
+            "+faststart",
+            str(target),
+        ]
+    completed = subprocess.run(command, cwd=root, capture_output=True, text=True, check=False)
+    return target if completed.returncode == 0 and target.exists() else None
+
+
+def compose_still_video(root: Path, assets: list[Path], audio: Path | None, target: Path, fps: int, durations: list[float]) -> Path | None:
     ffmpeg = resolve_ffmpeg()
     if not ffmpeg.available or ffmpeg.executable is None:
         return None
@@ -489,10 +600,27 @@ def compose_video(root: Path, assets: list[Path], audio: Path | None, target: Pa
     return target if completed.returncode == 0 and target.exists() else None
 
 
-def write_config_ui(root: Path, plan: ShortVideoPlan, config: ShortVideoConfig, aspect: AspectTemplate, manifest_name: str, config_name: str) -> Path:
+def write_config_ui(
+    root: Path,
+    plan: ShortVideoPlan,
+    config: ShortVideoConfig,
+    aspect: AspectTemplate,
+    manifest_name: str,
+    config_name: str,
+    assets: list[Path],
+    video_name: str | None,
+) -> Path:
     scene_cards = "\n".join(
-        f"<article><h3>{html.escape(scene.title)}</h3><p>{html.escape(scene.narration)}</p><small>{html.escape(scene.visual_prompt)}</small></article>"
-        for scene in plan.scenes
+        (
+            f"<article><img src=\"{html.escape(str(assets[index].relative_to(root)).replace(os.sep, '/'))}\" alt=\"Scene {scene.index}\">"
+            f"<h3>{html.escape(scene.title)}</h3><p>{html.escape(scene.narration)}</p>"
+            f"<p><strong>Caption:</strong> {html.escape(scene.caption)}</p>"
+            f"<small>{html.escape(scene.visual_prompt)}</small></article>"
+        )
+        for index, scene in enumerate(plan.scenes)
+    )
+    video_preview = (
+        f"<video controls src=\"{html.escape(video_name)}\"></video>" if video_name else "<p>MP4 export was not available for this run.</p>"
     )
     content = f"""<!doctype html>
 <html lang="en">
@@ -506,8 +634,10 @@ def write_config_ui(root: Path, plan: ShortVideoPlan, config: ShortVideoConfig, 
     h1 {{ font-size: clamp(32px, 6vw, 68px); margin: 0 0 12px; }}
     .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }}
     article, .panel {{ border: 1px solid #3a3a3a; border-radius: 8px; padding: 16px; background: #202020; }}
+    article img, video {{ width: 100%; border-radius: 8px; background: #111; aspect-ratio: {aspect.width} / {aspect.height}; object-fit: cover; }}
     h3 {{ margin: 0 0 8px; color: #f97316; }}
     p {{ color: #d4d4d8; line-height: 1.5; }}
+    a {{ color: #38bdf8; }}
     code {{ color: #38bdf8; }}
     label {{ display: grid; gap: 6px; margin: 10px 0; color: #d4d4d8; }}
     input, select {{ background: #111; color: #f5f5f4; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px; }}
@@ -522,12 +652,19 @@ def write_config_ui(root: Path, plan: ShortVideoPlan, config: ShortVideoConfig, 
       <p><strong>Manifest:</strong> <code>{manifest_name}</code></p>
       <p><strong>Config:</strong> <code>{config_name}</code></p>
     </section>
+    <h2>Preview</h2>
+    <section class="panel">{video_preview}</section>
     <h2>Config</h2>
     <section class="grid">
       <label>Aspect<select><option>{html.escape(aspect.name)}</option></select></label>
       <label>Duration seconds<input value="{config.duration_sec or ''}"></label>
       <label>Frames per second<input value="{config.fps}"></label>
       <label>Scenes<input value="{config.scene_count}"></label>
+    </section>
+    <h2>Files</h2>
+    <section class="panel">
+      <p><a href="script.md">script.md</a> | <a href="subtitles.srt">subtitles.srt</a> | <a href="asset_plan.json">asset_plan.json</a> | <a href="{html.escape(config_name)}">{html.escape(config_name)}</a> | <a href="{html.escape(manifest_name)}">{html.escape(manifest_name)}</a></p>
+      <p><code>python -m local_llm.short_video "{html.escape(plan.topic)}"</code></p>
     </section>
     <h2>Scenes</h2>
     <section class="grid">{scene_cards}</section>
@@ -574,8 +711,12 @@ def create_short_video(topic: str, repo: Path, config: ShortVideoConfig | None =
     voiceover = create_voiceover(plan, root / "voiceover.wav") if config.voiceover else None
     music = create_background_music(root / "background_music.wav", duration) if config.background_music else None
     mixed_audio = mix_audio(voiceover, music, root / "audio_mix.wav")
-    video = compose_video(root, assets, mixed_audio, root / "short_video.mp4", config.fps, [scene.duration_sec for scene in plan.scenes]) if config.mp4 else None
-    web_ui = write_config_ui(root, plan, config, aspect, "ares-short-video.json", config_path.name)
+    video = (
+        compose_video(root, assets, mixed_audio, root / "short_video.mp4", config.fps, [scene.duration_sec for scene in plan.scenes], aspect)
+        if config.mp4
+        else None
+    )
+    web_ui = write_config_ui(root, plan, config, aspect, "ares-short-video.json", config_path.name, assets, video.name if video else None)
 
     manifest = {
         "kind": "short-video",
@@ -601,6 +742,7 @@ def create_short_video(topic: str, repo: Path, config: ShortVideoConfig | None =
             "subtitles",
             "voiceover-tts",
             "background-music",
+            "scene-motion",
             "ffmpeg-composition",
             "aspect-template",
             "config-system",

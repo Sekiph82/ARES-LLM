@@ -61,6 +61,7 @@ def test_create_short_video_writes_full_pipeline(tmp_path) -> None:
         "subtitles",
         "voiceover-tts",
         "background-music",
+        "scene-motion",
         "ffmpeg-composition",
         "aspect-template",
         "config-system",

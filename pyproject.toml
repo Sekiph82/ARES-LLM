@@ -27,6 +27,8 @@ ares-create-web = "local_llm.web_artifact:main"
 ares-create-media = "local_llm.media_artifact:main"
 ares-create-remotion = "local_llm.remotion_artifact:main"
 ares-create-short-video = "local_llm.short_video:main"
+ares-healthcheck = "local_llm.healthcheck:main"
+ares-ollama = "local_llm.ollama_manager:main"
 
 [project.optional-dependencies]
 dev = [

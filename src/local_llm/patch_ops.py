@@ -20,6 +20,28 @@ class PatchApplyResult:
     changed_paths: tuple[Path, ...] = ()
 
 
+@dataclass(frozen=True)
+class PatchFileSummary:
+    path: Path
+    additions: int
+    deletions: int
+
+
+@dataclass(frozen=True)
+class PatchPreview:
+    ok: bool
+    message: str
+    files: tuple[PatchFileSummary, ...]
+
+    @property
+    def total_additions(self) -> int:
+        return sum(file.additions for file in self.files)
+
+    @property
+    def total_deletions(self) -> int:
+        return sum(file.deletions for file in self.files)
+
+
 def patch_paths(patch_text: str) -> list[Path]:
     paths: set[str] = set()
     for left, right in DIFF_GIT_PATH_RE.findall(patch_text):
@@ -30,6 +52,29 @@ def patch_paths(patch_text: str) -> list[Path]:
         if raw != "/dev/null":
             paths.add(raw.strip())
     return sorted((Path(path) for path in paths), key=lambda path: path.as_posix())
+
+
+def summarize_patch(repo: Path, patch_text: str) -> PatchPreview:
+    safety = assess_patch_safety(repo, patch_text)
+    counts = {path.as_posix(): [0, 0] for path in safety.changed_paths}
+    current_path: str | None = None
+    for line in patch_text.splitlines():
+        match = re.match(r"^\+\+\+ [ab]/(.+)$", line)
+        if match:
+            current_path = match.group(1)
+            counts.setdefault(current_path, [0, 0])
+            continue
+        if not current_path or line.startswith("+++") or line.startswith("---"):
+            continue
+        if line.startswith("+"):
+            counts[current_path][0] += 1
+        elif line.startswith("-"):
+            counts[current_path][1] += 1
+    files = tuple(
+        PatchFileSummary(Path(path), additions=values[0], deletions=values[1])
+        for path, values in sorted(counts.items())
+    )
+    return PatchPreview(ok=safety.ok, message=safety.message, files=files)
 
 
 def is_safe_relative_path(path: Path) -> bool:

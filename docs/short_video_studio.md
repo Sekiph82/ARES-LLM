@@ -13,7 +13,7 @@ It creates a complete local production folder:
 6. Voiceover/TTS as `voiceover.wav`.
 7. Background music as `background_music.wav`.
 8. Audio mix as `audio_mix.wav`.
-9. FFmpeg video composition as `short_video.mp4`.
+9. FFmpeg scene-motion composition as `short_video.mp4`.
 10. Aspect-ratio template selection.
 11. Local `studio.html` config/review UI.
 
@@ -51,6 +51,10 @@ Each folder includes:
 - `assets\scene-*.png`
 - `studio.html`
 - `ares-short-video.json`
+- `clips\scene-*.mp4` when FFmpeg scene-motion export is available
+
+The generated studio page includes a video preview, scene image cards, config
+values, direct file links, and a re-render command.
 
 ## Aspect Templates
 

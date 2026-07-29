@@ -35,6 +35,11 @@ also building toward a useful local coding workflow.
   aspect-ratio templates, MP4 export, and a local studio UI.
 - Use a desktop workspace with Chat, Files, Diff, Training, Sessions, and
   Settings panels.
+- Check local readiness from Settings or CLI: Python packages, Ollama model,
+  FFmpeg, Playwright, git, and writable artifact folders.
+- Keep shared defaults in `config/ares.example.json` and private laptop
+  settings in ignored `config/ares.local.json`.
+- Manage local Ollama models from Settings or the `ares-ollama` CLI.
 - Preview and check patch suggestions before applying them with a backup.
 - Run tests, inspect git status/diff stats, browse session history, and view a
   Python symbol index from the app.
@@ -186,6 +191,41 @@ Each short-video artifact includes:
 - `assets\scene-*.png`
 - `studio.html`
 - `ares-short-video.json`
+
+Short-video MP4 exports use FFmpeg scene motion when available, so each scene
+gets a pan/zoom motion pass instead of being exported as a plain still slide.
+The generated `studio.html` page includes a video preview, scene cards, config
+values, and direct links to the production files.
+
+## Health, Config, And Ollama
+
+Run a local readiness check:
+
+```powershell
+python -m local_llm.healthcheck --repo . --model ares-coder
+```
+
+List or test Ollama models:
+
+```powershell
+python -m local_llm.ollama_manager --list
+python -m local_llm.ollama_manager --status --model ares-coder
+python -m local_llm.ollama_manager --test --model ares-coder
+```
+
+Shared defaults live in:
+
+```text
+config\ares.example.json
+```
+
+Private laptop settings can be saved by the app to:
+
+```text
+config\ares.local.json
+```
+
+`ares.local.json` is ignored by git.
 
 Ares can create lightweight local media artifacts inspired by agentic video
 generation workflows. It plans the prompt into shots, keeps a consistent visual

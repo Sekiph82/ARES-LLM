@@ -1,0 +1,18 @@
+{
+  "ollama_base_url": "http://127.0.0.1:11434",
+  "default_model": "ares-coder",
+  "recommended_model": "qwen2.5-coder:3b",
+  "test_command": [
+    "python",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "short_video": {
+    "aspect": "auto",
+    "fps": 24,
+    "scene_count": 5,
+    "voiceover": true,
+    "background_music": true
+  }
+}

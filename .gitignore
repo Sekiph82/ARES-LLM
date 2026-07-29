@@ -27,5 +27,6 @@ dist/
 .env
 .env.*
 !.env.example
+config/ares.local.json
 *.lnk
 .DS_Store

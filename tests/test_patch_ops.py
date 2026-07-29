@@ -1,4 +1,4 @@
-from local_llm.patch_ops import assess_patch_safety, check_patch, is_safe_relative_path, patch_paths
+from local_llm.patch_ops import assess_patch_safety, check_patch, is_safe_relative_path, patch_paths, summarize_patch
 
 
 def test_patch_paths_extracts_git_diff_paths() -> None:
@@ -52,3 +52,22 @@ def test_assess_patch_safety_rejects_env_files(tmp_path) -> None:
 
     assert not result.ok
     assert "secret" in result.message
+
+
+def test_summarize_patch_counts_additions_and_deletions(tmp_path) -> None:
+    patch = """diff --git a/src/app.py b/src/app.py
+--- a/src/app.py
++++ b/src/app.py
+@@ -1,2 +1,3 @@
+-old
++new
++extra
+ keep
+"""
+
+    preview = summarize_patch(tmp_path, patch)
+
+    assert preview.ok
+    assert preview.total_additions == 2
+    assert preview.total_deletions == 1
+    assert preview.files[0].path.as_posix() == "src/app.py"

@@ -32,8 +32,14 @@ next development session can continue without rediscovering the project state.
   when FFmpeg is available, Remotion project files, and backend handoff
   manifests.
 - Short Video Studio exists with script planning, scene planning, procedural
-  assets, subtitles, voiceover, music, audio mix, MP4 export, aspect templates,
-  config JSON, and `studio.html`.
+  assets, scene motion, subtitles, voiceover, music, audio mix, MP4 export,
+  aspect templates, config JSON, and `studio.html`.
+- Health check CLI and Settings panel readiness check exist.
+- Local config loading exists through committed example defaults, ignored local
+  overrides, and environment-variable overrides.
+- Ollama model refresh/test/create controls exist in Settings.
+- Diff panel shows patch summary, touched files, additions/deletions, safety
+  status, save, reject, check, and apply actions.
 - Commerce tab exists in read-only setup mode, but real Shopify/Etsy OAuth and
   shop management are not complete.
 
@@ -41,7 +47,7 @@ next development session can continue without rediscovering the project state.
 
 ### P0.1 Application Health Check
 
-Status: Pending
+Status: Implemented
 
 Goal: Add one command and one GUI button that checks whether Ares is ready.
 
@@ -66,7 +72,7 @@ Acceptance Criteria:
 
 ### P0.2 Local Configuration System
 
-Status: Pending
+Status: Implemented
 
 Goal: Move machine-specific settings to ignored local config files.
 
@@ -108,7 +114,7 @@ Acceptance Criteria:
 
 ### P1.1 Real Patch Preview Panel
 
-Status: Pending
+Status: First pass implemented
 
 Goal: Let Ares show proposed code changes before applying them.
 
@@ -148,7 +154,7 @@ Acceptance Criteria:
 
 ### P1.3 Run Tests Workflow
 
-Status: Pending
+Status: In Progress
 
 Goal: Let Ares run repo tests without opening a terminal.
 
@@ -168,7 +174,7 @@ Acceptance Criteria:
 
 ### P1.4 Repo Index And Symbol Map Upgrade
 
-Status: Pending
+Status: In Progress
 
 Goal: Improve how Ares understands codebases.
 
@@ -298,7 +304,7 @@ Acceptance Criteria:
 
 ### P3.2 Scene Motion And Composition
 
-Status: Pending
+Status: First pass implemented
 
 Goal: Make videos feel like videos, not still slides.
 
@@ -359,7 +365,7 @@ Acceptance Criteria:
 
 ### P3.5 Studio UI
 
-Status: Pending
+Status: First pass implemented
 
 Goal: Turn `studio.html` into a useful local review/config page.
 
@@ -574,7 +580,7 @@ Acceptance Criteria:
 
 ### P6.1 Ollama Model Manager
 
-Status: Pending
+Status: First pass implemented
 
 Goal: Manage local coding models from Ares.
 
@@ -718,16 +724,14 @@ Acceptance Criteria:
 
 ## Suggested Next Implementation Order
 
-1. P0.1 Application Health Check.
-2. P0.2 Local Configuration System.
-3. P3.2 Scene Motion And Composition.
-4. P3.5 Studio UI.
-5. P1.1 Real Patch Preview Panel.
-6. P1.3 Run Tests Workflow.
-7. P6.1 Ollama Model Manager.
-8. P4.1 Shopify OAuth Setup.
-9. P4.2 Etsy OAuth Setup.
-10. P5.1 Training Dashboard.
+1. P1.3 Run Tests Workflow deepening with saved test history and badges.
+2. P3.1 Real image backend provider interface for Short Video Studio.
+3. P3.3 Voiceover quality with local Piper or another stronger TTS provider.
+4. P4.1 Shopify OAuth Setup.
+5. P4.2 Etsy OAuth Setup.
+6. P5.1 Training Dashboard.
+7. P1.5 Agent Task Loop.
+8. P2.3 App Artifact Revision Flow.
 
 ## Definition Of Done For Future Tasks
 
