@@ -21,6 +21,9 @@ and agent upgrade.
   patch targets before `git apply`.
 - **Visual QA for generated sites**: artifacts record optional desktop/mobile
   browser screenshots and blank-page checks when Playwright is installed.
+- **Local media generation**: `local_llm.media_artifact` turns image/video
+  prompts into a ViMax-inspired local plan, storyboard, keyframe PNGs, frame
+  sequence, animated GIF, and manifest.
 
 ## Important Limits
 
@@ -33,3 +36,6 @@ CPU demo presets and still much smaller than Qwen Coder.
 
 Visual QA is optional. If Playwright is not installed, generated artifacts still
 work and record that QA was skipped.
+
+The local media generator is a storyboard and preview renderer. It does not yet
+run a large image diffusion or video model locally.

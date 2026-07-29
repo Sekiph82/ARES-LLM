@@ -12,6 +12,7 @@ dependencies = [
     "torch>=2.2",
     "numpy>=1.26",
     "tqdm>=4.66",
+    "pillow>=10.0",
 ]
 
 [project.scripts]
@@ -23,6 +24,7 @@ local-llm-train = "local_llm.train:main"
 local-llm-generate = "local_llm.generate:main"
 local-code-agent = "local_llm.agent:main"
 ares-create-web = "local_llm.web_artifact:main"
+ares-create-media = "local_llm.media_artifact:main"
 
 [project.optional-dependencies]
 dev = [

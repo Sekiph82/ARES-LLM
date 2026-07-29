@@ -28,6 +28,8 @@ also building toward a useful local coding workflow.
 - Save session metadata and extracted patch suggestions.
 - Create dynamic website/app artifacts with responsive UI, real JavaScript
   interactions, and a reusable `DESIGN.md` design contract.
+- Create local media artifacts with storyboard planning, generated keyframe
+  PNGs, frame sequences, and animated GIF output.
 - Use a desktop workspace with Chat, Files, Diff, Training, Sessions, and
   Settings panels.
 - Preview and check patch suggestions before applying them with a backup.
@@ -154,6 +156,36 @@ The root `DESIGN.md` file acts like an Open Design-style brand contract for
 Ares. Edit it when you want Ares to use a different visual style for generated
 websites and apps.
 
+## Create Local Images And Videos
+
+Ares can create lightweight local media artifacts inspired by agentic video
+generation workflows. It plans the prompt into shots, keeps a consistent visual
+style, renders keyframe PNGs, writes a storyboard, and assembles an animated
+GIF locally with Pillow.
+
+```powershell
+python -m local_llm.media_artifact "Create a cinematic Ares launch video with code, dashboard, and logo"
+```
+
+Generated media is written to:
+
+```text
+artifacts\media-<brief-slug>-<timestamp>\
+```
+
+Each media artifact includes:
+
+- `video.gif`
+- `storyboard.png`
+- `storyboard.md`
+- `ares-media.json`
+- `keyframes\shot-*.png`
+- `frames\shot-*-frame-*.png`
+
+This first version is a local procedural storyboard and preview renderer, not a
+large diffusion/video model. See [docs/local_media_generation.md](docs/local_media_generation.md)
+for details and upgrade ideas.
+
 ## Ares Desktop App
 
 Ares is the no-terminal desktop app for this project. It uses:
@@ -165,6 +197,8 @@ Ares is the no-terminal desktop app for this project. It uses:
 - A mode selector for answer, plan, patch, review, reasoning, and design.
 - Automatic website/app routing when the task asks Ares to create or build a
   website, app, dashboard, landing page, portal, or tool.
+- Automatic local media routing when the task asks Ares to create or generate
+  videos, images, animations, GIFs, storyboards, clips, or keyframes.
 - Keyboard-first chat: `Enter` sends, `Ctrl+Enter` inserts a new paragraph.
 - A **Diff** panel for previewing, checking, and applying patch suggestions with
   automatic backups under `runs/backups`.
@@ -305,6 +339,7 @@ src/local_llm/
   generate.py    Local text generation CLI.
   agent.py       Ollama-powered coding assistant CLI.
   web_artifact.py
+  media_artifact.py
   design_system.py
   patch_ops.py
   repo_index.py
@@ -329,3 +364,4 @@ tests/
 5. Add LoRA fine-tuning for small adapters.
 6. Add safe patch application to the local coding agent.
 7. Add browser screenshots and visual QA for generated website/app artifacts.
+8. Add local image/video artifact generation.

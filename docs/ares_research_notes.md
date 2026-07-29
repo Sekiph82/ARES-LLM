@@ -48,6 +48,11 @@ the practical ideas folded into Ares.
   one giant prompt. Ares adds explicit modes as a first step toward skills.
 - `getagentseal/codeburn`: local usage visibility matters. Ares records prompt
   and response size estimates in `runs/agent/sessions.jsonl`.
+- `HKUDS/ViMax`: agentic video generation should separate creative planning,
+  storyboard/shot design, visual consistency, rendering, and artifact review.
+  Ares adds a lightweight local media pipeline that follows this shape with
+  procedural PNG/GIF outputs, while leaving heavier local image/video models as
+  a later renderer upgrade.
 
 ## Deferred Ideas
 
@@ -57,3 +62,4 @@ the practical ideas folded into Ares.
 - SFT/LoRA adapters for a larger pretrained model.
 - Remote/mobile access to the local agent.
 - Plugin or skill marketplace.
+- Local diffusion/video model backends behind the media artifact interface.

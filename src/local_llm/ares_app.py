@@ -13,6 +13,7 @@ from tkinter import messagebox, scrolledtext, ttk
 
 from local_llm.agent_core import DEFAULT_MODEL, MODE_INSTRUCTIONS, ask_agent
 from local_llm.commerce import check_commerce_connections, format_commerce_checks
+from local_llm.media_artifact import create_media_artifact
 from local_llm.memory import append_memory
 from local_llm.ollama_client import OllamaClient
 from local_llm.patch_ops import apply_patch_with_backup, check_patch
@@ -423,7 +424,7 @@ class AresApp(tk.Tk):
         info = (
             "Ares is configured for local-first coding through Ollama.\n\n"
             "Implemented panels:\n"
-            "- New Chat: ask the local model; website/app tasks are routed automatically.\n"
+            "- New Chat: ask the local model; website/app and media tasks are routed automatically.\n"
             "- Files: repo index, Python symbols, git status, and diff stat.\n"
             "- Diff: preview/check/apply patch suggestions with backups.\n"
             "- Training: pretraining/SFT presets, progress log, loss chart, and scratch generation.\n"
@@ -441,6 +442,9 @@ class AresApp(tk.Tk):
             "short context, visible loss, timing, and token-throughput logs.\n"
             "BPE presets add learned pair-token merges. Ares SFT presets add chat formatting and assistant-only masked loss.\n"
             "Training runs save metrics.json, training_log.csv, validation_curve.svg, and runs/experiments.jsonl.\n"
+            "\nMedia note:\n"
+            "Image/video requests create local storyboard, keyframe PNGs, and an animated GIF under artifacts/.\n"
+            "This is a local procedural pipeline for planning and previews, not a large diffusion/video model.\n"
             "\nSelf-learning note:\n"
             "Ares learns safely through local memory in data/ares_memory.md, not by silently retraining itself.\n"
             "Long unattended retraining can overfit, break behavior, or learn bad data unless it is evaluated.\n"
@@ -479,6 +483,9 @@ class AresApp(tk.Tk):
 
         if should_create_web_artifact(task):
             self.create_website_app()
+            return
+        if should_create_media_artifact(task):
+            self.create_media_artifact_task()
             return
 
         self._set_busy(True, "Asking local model...")
@@ -521,6 +528,40 @@ class AresApp(tk.Tk):
             )
             self.messages.put("__PATCH_PREVIEW__")
             self.messages.put("__REFRESH_SESSIONS__")
+        except Exception as exc:
+            self.messages.put(f"Error: {exc}\n")
+        finally:
+            self.messages.put("__READY__")
+
+    def create_media_artifact_task(self) -> None:
+        brief = self.prompt.get("1.0", tk.END).strip()
+        if not brief:
+            messagebox.showinfo(APP_NAME, "Enter an image or video brief first.")
+            return
+
+        self._set_busy(True, "Creating local media...")
+        self._append_output(f"\n[Ares Media] {brief}\n\n")
+        thread = threading.Thread(target=self._create_media_artifact_worker, args=(brief,), daemon=True)
+        thread.start()
+
+    def _create_media_artifact_worker(self, brief: str) -> None:
+        try:
+            result = create_media_artifact(
+                brief=brief,
+                repo=self.repo_root,
+                shot_count=4,
+                frames_per_shot=12,
+                fps=8,
+            )
+            self.messages.put(f"Created local media artifact:\n{result.root}\n")
+            self.messages.put(f"Animated video:\n{result.video_path}\n")
+            self.messages.put(f"Storyboard:\n{result.storyboard_markdown}\n")
+            self.messages.put(f"Storyboard image:\n{result.storyboard_image}\n")
+            self.messages.put(f"Keyframes: {len(result.keyframes)} | Frames: {len(result.frames)}\n")
+            try:
+                os.startfile(result.root)
+            except OSError as exc:
+                self.messages.put(f"Could not auto-open media folder: {exc}\n")
         except Exception as exc:
             self.messages.put(f"Error: {exc}\n")
         finally:
@@ -932,6 +973,37 @@ def should_create_web_artifact(task: str) -> bool:
         "site",
     )
     return any(word in text for word in build_words) and any(word in text for word in artifact_words)
+
+
+def should_create_media_artifact(task: str) -> bool:
+    text = task.lower()
+    build_words = (
+        "create",
+        "build",
+        "make",
+        "design",
+        "generate",
+        "render",
+        "produce",
+    )
+    media_words = (
+        "video",
+        "videos",
+        "image",
+        "images",
+        "picture",
+        "pictures",
+        "animation",
+        "animated",
+        "gif",
+        "storyboard",
+        "film",
+        "clip",
+        "media",
+        "keyframe",
+        "keyframes",
+    )
+    return any(word in text for word in build_words) and any(word in text for word in media_words)
 
 
 def main() -> None:
