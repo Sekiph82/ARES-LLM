@@ -13,6 +13,7 @@ from tkinter import messagebox, scrolledtext, ttk
 
 from local_llm.agent_core import DEFAULT_MODEL, MODE_INSTRUCTIONS, ask_agent
 from local_llm.commerce import check_commerce_connections, format_commerce_checks
+from local_llm.media_backends import format_backend_statuses
 from local_llm.media_artifact import create_media_artifact
 from local_llm.memory import append_memory
 from local_llm.ollama_client import OllamaClient
@@ -445,6 +446,9 @@ class AresApp(tk.Tk):
             "\nMedia note:\n"
             "Image/video requests create local storyboard, keyframe PNGs, and an animated GIF under artifacts/.\n"
             "This is a local procedural pipeline for planning and previews, not a large diffusion/video model.\n"
+            "Optional backend bridges can be configured with ARES_VIMAX_DIR, ARES_HUNYUANVIDEO_DIR,\n"
+            "ARES_COGVIDEO_DIR, ARES_TOONFLOW_URL, or ARES_OPEN_GENERATIVE_AI_URL.\n\n"
+            f"{format_backend_statuses()}"
             "\nSelf-learning note:\n"
             "Ares learns safely through local memory in data/ares_memory.md, not by silently retraining itself.\n"
             "Long unattended retraining can overfit, break behavior, or learn bad data unless it is evaluated.\n"
@@ -554,6 +558,7 @@ class AresApp(tk.Tk):
                 fps=8,
             )
             self.messages.put(f"Created local media artifact:\n{result.root}\n")
+            self.messages.put(f"Backend:\n{result.backend_name}\n")
             self.messages.put(f"Animated video:\n{result.video_path}\n")
             self.messages.put(f"Storyboard:\n{result.storyboard_markdown}\n")
             self.messages.put(f"Storyboard image:\n{result.storyboard_image}\n")

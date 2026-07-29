@@ -13,6 +13,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from local_llm.media_backends import backend_prompt_package, choose_backend, format_backend_statuses
+
 
 @dataclass(frozen=True)
 class MediaShot:
@@ -37,6 +39,7 @@ class MediaPlan:
 class MediaArtifactResult:
     root: Path
     plan: MediaPlan
+    backend_name: str
     keyframes: list[Path]
     frames: list[Path]
     video_path: Path
@@ -359,13 +362,16 @@ def create_media_artifact(
     height: int = 540,
     frames_per_shot: int = 12,
     fps: int = 8,
+    backend: str = "auto",
 ) -> MediaArtifactResult:
     repo = repo.resolve()
     width = max(240, min(1920, width))
     height = max(160, min(1080, height))
     frames_per_shot = max(1, min(48, frames_per_shot))
     fps = max(1, min(30, fps))
-    plan = plan_media(brief, shot_count=shot_count)
+    backend_status = choose_backend(backend, brief=brief)
+    prompt_package = backend_prompt_package(brief, backend_status.spec)
+    plan = plan_media(str(prompt_package["enhanced_prompt"]), shot_count=shot_count)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     root = repo / "artifacts" / f"media-{slugify(brief)}-{timestamp}"
     frames_dir = root / "frames"
@@ -405,6 +411,18 @@ def create_media_artifact(
         "format": "animated-gif",
         "created_at": timestamp,
         "brief": brief,
+        "backend": {
+            "selected": backend_status.spec.name,
+            "display_name": backend_status.spec.display_name,
+            "repo_url": backend_status.spec.repo_url,
+            "configured": backend_status.configured,
+            "reason": backend_status.reason,
+            "launch_hint": backend_status.launch_hint,
+            "modes": list(backend_status.spec.modes),
+            "strengths": list(backend_status.spec.strengths),
+            "min_vram_gb": backend_status.spec.min_vram_gb,
+        },
+        "prompt_package": prompt_package,
         "style": plan.style,
         "size": {"width": width, "height": height},
         "fps": fps,
@@ -422,6 +440,7 @@ def create_media_artifact(
     return MediaArtifactResult(
         root=root,
         plan=plan,
+        backend_name=backend_status.spec.name,
         keyframes=keyframes,
         frames=frames,
         video_path=video_path,
@@ -433,7 +452,7 @@ def create_media_artifact(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create local image/video media artifacts with Ares.")
-    parser.add_argument("brief", nargs="+", help="Image, storyboard, or video brief.")
+    parser.add_argument("brief", nargs="*", help="Image, storyboard, or video brief.")
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--kind", choices=["auto", "gif", "video", "image"], default="auto")
     parser.add_argument("--shots", type=int, default=4)
@@ -441,11 +460,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--height", type=int, default=540)
     parser.add_argument("--frames-per-shot", type=int, default=12)
     parser.add_argument("--fps", type=int, default=8)
+    parser.add_argument("--backend", default="auto", help="Media backend name or auto.")
+    parser.add_argument("--list-backends", action="store_true", help="Print available backend status and exit.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    if args.list_backends:
+        print(format_backend_statuses())
+        return
+    if not args.brief:
+        raise SystemExit("Provide a media brief, or use --list-backends.")
     result = create_media_artifact(
         " ".join(args.brief),
         repo=args.repo,
@@ -455,8 +481,10 @@ def main() -> None:
         height=args.height,
         frames_per_shot=args.frames_per_shot,
         fps=args.fps,
+        backend=args.backend,
     )
     print(f"Created media artifact: {result.root}")
+    print(f"Backend: {result.backend_name}")
     print(f"Video: {result.video_path}")
     print(f"Storyboard: {result.storyboard_markdown}")
     print(f"Keyframes: {len(result.keyframes)}")

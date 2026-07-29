@@ -53,6 +53,19 @@ the practical ideas folded into Ares.
   Ares adds a lightweight local media pipeline that follows this shape with
   procedural PNG/GIF outputs, while leaving heavier local image/video models as
   a later renderer upgrade.
+- `Tencent-Hunyuan/HunyuanVideo`: large open video foundation models need a
+  clean handoff boundary because their full local inference requirements are
+  workstation-class. Ares records Hunyuan-ready prompt packages and backend
+  status without forcing the repo to install massive CUDA dependencies.
+- `zai-org/CogVideo`: prompt optimization and Diffusers-oriented inference are
+  useful backend patterns. Ares adds CogVideoX as a selectable media backend
+  target.
+- `HBAI-Ltd/Toonflow-app`: short-drama creation benefits from script, character,
+  storyboard, and shot panels. Ares folds those ideas into the media plan and
+  keeps a bridge target for a running Toonflow app.
+- `Anil-matcha/Open-Generative-AI`: a self-hosted image/video studio should
+  expose a model catalog and generation endpoint. Ares adds this as an optional
+  local HTTP backend target while keeping Ares' own safety and artifact checks.
 
 ## Deferred Ideas
 

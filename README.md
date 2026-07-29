@@ -161,10 +161,17 @@ websites and apps.
 Ares can create lightweight local media artifacts inspired by agentic video
 generation workflows. It plans the prompt into shots, keeps a consistent visual
 style, renders keyframe PNGs, writes a storyboard, and assembles an animated
-GIF locally with Pillow.
+GIF locally with Pillow. It also records backend handoff data for ViMax,
+HunyuanVideo, CogVideoX, Toonflow, and Open Generative AI.
 
 ```powershell
 python -m local_llm.media_artifact "Create a cinematic Ares launch video with code, dashboard, and logo"
+```
+
+Check local media backend status:
+
+```powershell
+python -m local_llm.media_artifact --list-backends
 ```
 
 Generated media is written to:

@@ -24,6 +24,9 @@ and agent upgrade.
 - **Local media generation**: `local_llm.media_artifact` turns image/video
   prompts into a ViMax-inspired local plan, storyboard, keyframe PNGs, frame
   sequence, animated GIF, and manifest.
+- **Media backend registry**: Ares can now record backend status and prompt
+  handoff packages for ViMax, HunyuanVideo, CogVideoX, Toonflow, and Open
+  Generative AI while falling back to the built-in renderer.
 
 ## Important Limits
 
@@ -38,4 +41,6 @@ Visual QA is optional. If Playwright is not installed, generated artifacts still
 work and record that QA was skipped.
 
 The local media generator is a storyboard and preview renderer. It does not yet
-run a large image diffusion or video model locally.
+run a large image diffusion or video model locally. HunyuanVideo, CogVideoX,
+Toonflow, and Open Generative AI require their own local installs or services
+before Ares can hand work to them.
