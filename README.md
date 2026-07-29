@@ -196,24 +196,6 @@ This creates the executable at:
 dist\Ares.exe
 ```
 
-Create an optional desktop shortcut for the current Windows user:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\create_ares_shortcut.ps1
-```
-
-The shortcut points to the repo-local executable:
-
-```text
-<repo>\dist\Ares.exe
-```
-
-The shortcut is created on the current user's Desktop:
-
-```text
-%USERPROFILE%\Desktop\Ares.lnk
-```
-
 ## Train A Tiny Model
 
 ```powershell
